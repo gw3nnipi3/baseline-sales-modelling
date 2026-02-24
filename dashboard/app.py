@@ -1,6 +1,71 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
+import altair as alt
+
+from src.data.processing import load_data, create_baseline_series
+from src.models.sarima import backtest_sarima
+
+st.set_page_config(page_title="Baseline Sales Dashboard")
+st.title("Baseline Sales SARIMA Backtest")
+
+# ----------------------
+# Load and Prepare Data
+# ----------------------
+df = load_data("data/raw/data.csv")
+sku_id = df["product_sku_code"].iloc[0]
+customer_id = df["customer"].iloc[0]
+
+baseline_series = create_baseline_series(
+    df,
+    sku_id=sku_id,
+    customer_id=customer_id,
+    exclude_promotions=True
+)
+model_df = baseline_series.to_frame()
+
+
+# ----------------------
+# Run Backtest SARIMA
+# ----------------------
+train, test, forecast_mean, forecast_ci = backtest_sarima(model_df)
+
+# ----------------------
+# Prepare Data for Altair
+# ----------------------
+plot_df = pd.concat([
+    train.rename(columns={"sales": "Train"}),
+    test.rename(columns={"sales": "Test"})
+], axis=1)
+
+plot_df["Prediction"] = forecast_mean
+plot_df = plot_df.reset_index().melt("date", var_name="Series", value_name="Sales")
+
+# ----------------------
+# Streamlit Altair Plot
+# ----------------------
+chart = alt.Chart(plot_df).mark_line().encode(
+    x="date:T",
+    y="Sales:Q",
+    color="Series:N",
+    tooltip=["date:T", "Series:N", "Sales:Q"]
+).interactive().properties(
+    width=800,
+    height=400,
+    title="Backtesting: Predicted vs Actual Baseline Sales"
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# ----------------------
+# Optional: Show Forecast Only
+# ----------------------
+st.write("### Forecast for Test Period")
+st.line_chart(forecast_mean)
 
 st.set_page_config(
     page_title="Hello",
@@ -33,6 +98,7 @@ with topBar[0]:
 with topBar[1]:
     heading = st.write("another stat")
     df = pd.DataFrame(np.random.randn(10, 20))
+    
     _ = st.line_chart(df)
 
 
