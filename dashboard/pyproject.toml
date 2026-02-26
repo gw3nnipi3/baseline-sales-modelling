@@ -1,0 +1,5 @@
+[tool.basedpyright]
+venvPath = "../.venv"
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
