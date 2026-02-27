@@ -52,10 +52,6 @@ def create_baseline_series(
     if customer_id is not None:
         df_work = df_work[df_work["customer"] == customer_id]
 
-    # Exclude promotion weeks if requested
-    if exclude_promotions:
-        df_work = df_work[df_work["promotion_indicator"] == 0]
-
     # Aggregate duplicates per week
     agg_dict = {
         "nielsen_total_volume": agg_method,
@@ -63,10 +59,17 @@ def create_baseline_series(
     }
     df_agg = df_work.groupby("date").agg(agg_dict)
 
-    # Fill missing weeks and interpolate sales
+    # Exclude promotion weeks if requested
+    if exclude_promotions:
+        df_agg = df_agg[df_agg["promotion_indicator"] == 0]
+
+    # Ensure sorted time index
+    df_agg = df_agg.sort_index()
+
+    # Weekly frequency alignment
     df_agg = df_agg.asfreq("W-MON")
+
+    # Interpolate missing sales
     df_agg["nielsen_total_volume"] = df_agg["nielsen_total_volume"].interpolate()
 
-    # Return a clean series for modeling
-    baseline_series = df_agg["nielsen_total_volume"].rename("sales")
-    return baseline_series
+    return df_agg["nielsen_total_volume"].rename("sales")

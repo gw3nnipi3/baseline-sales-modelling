@@ -1,5 +1,6 @@
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+import streamlit as st
 
 
 def train_sarima(series, order=(1,1,1), seasonal_order=(1,1,1,52)):
@@ -34,6 +35,7 @@ def forecast_sarima(results, steps=12):
     return forecast.predicted_mean, forecast.conf_int()
 
 
+@st.cache_resource
 def backtest_sarima(model_df, test_ratio=0.1):
     split_index = int(len(model_df) * (1 - test_ratio))
     train = model_df.iloc[:split_index]
