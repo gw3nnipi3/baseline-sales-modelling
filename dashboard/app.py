@@ -219,9 +219,11 @@ elif page == "Upload Data":
 # ----------------------
 if st.sidebar.button("+ Add Widget"):
     st.session_state.openConfig = True
+    st.rerun()
 
 if st.sidebar.button("Clear All Widgets"):
     st.session_state.widgets = []
+    st.rerun()
 
 if st.session_state.openConfig:
     with st.sidebar.expander("Configure & Save", True):
@@ -244,3 +246,4 @@ if st.session_state.openConfig:
 
             st.session_state.widgets.append({"data": data, "type": chart_type, "title": chart_option})
             st.session_state.openConfig = False
+            st.rerun()
