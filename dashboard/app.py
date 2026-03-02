@@ -215,6 +215,35 @@ elif page == "Upload Data":
         st.success(f"Saved to {saved_path}")
 
 # ----------------------
+# Import and Export Setting
+# ----------------------
+
+@st.cache_data
+def exportLayout():
+    data = {"data": [], "type": [], "title": []}
+    for widget in st.session_state.widgets:
+        data["data"] = widget["data"]
+        data["type"] = widget["type"]
+        data["title"] = widget["title"]
+
+    df = pd.DataFrame(data)
+    return df.to_csv().encode("utf-8")
+
+
+def importLayout(csvLayout):
+    if csvLayout is not None:
+        st.session_state.widgets = []
+        dfLayout = pd.read_csv(csvLayout)
+
+        for i in range(len(dfLayout)):
+            widget = dict()
+            widget["data"] = dfLayout["data"].iloc(i)
+            widget["type"] = dfLayout["type"].iloc(i)
+            widget["title"] = dfLayout["title"].iloc(i)
+
+            st.session_state.widget.append(widget)
+
+# ----------------------
 # Widget Config Sidebar
 # ----------------------
 if st.sidebar.button("+ Add Widget"):
@@ -222,6 +251,30 @@ if st.sidebar.button("+ Add Widget"):
 
 if st.sidebar.button("Clear All Widgets"):
     st.session_state.widgets = []
+
+with st.sidebar:
+    with st.popover("Click to Import Layout"):
+        csvLayout = st.file_uploader(
+            "Import Layout",
+            type=["csv"],
+        )
+
+        if csvLayout:
+            importLayout(csvLayout)
+            st.rerun()
+
+with st.sidebar:
+    with st.popover("Click to Export Layout"):
+        csv = exportLayout()
+        st.download_button(
+            label="Ready for Download",
+            data=csv,
+            file_name="layout.csv",
+            mime="text/csv",
+            icon=":material/download:",
+            on_click="rerun",
+        )
+
 
 if st.session_state.openConfig:
     with st.sidebar.expander("Configure & Save", True):
