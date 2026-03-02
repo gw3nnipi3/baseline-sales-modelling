@@ -44,6 +44,7 @@ with topBar[2]:
 # NOTE: st.session_state.widget encoding
 # DATA_SOURCE DISPLAY_TYPE (for the future DATE_RANGE)
 
+renderAll()
 
 # NOTE: side bar buttons
 with st.sidebar:
@@ -91,7 +92,10 @@ with st.sidebar:
 
 with st.sidebar:
     with st.popover("Click to Export Layout"):
-        csv = exportLayout(st.session_state.widgets)
+        # print("|||||||||||||||||||")
+        # print(st.session_state.widgets)
+        # print("|||||||||||||||||||")
+        csv = exportLayout()
         st.download_button(
             label="Ready for Download",
             data=csv,
@@ -100,5 +104,3 @@ with st.sidebar:
             icon=":material/download:",
             on_click="rerun",
         )
-
-renderAll()
