@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+import matplotlib.pyplot as plt
 
 from src.data.processing import load_data, create_baseline_series
 from src.models.sarima import backtest_sarima
@@ -204,8 +205,56 @@ elif page == "Seasonal Analysis":
     st.altair_chart(stacked_chart, use_container_width=True)
 
 elif page == "Cannibalisation":
-    st.header("Cannibalisation Analysis (Coming Soon)")
-    st.info("This section will show cannibalisation charts once available.")
+
+    st.title("Cannibalisation Analysis")
+
+    st.write(
+        "This simulated example demonstrates how a promotion on one product "
+        "can reduce the baseline demand of another product."
+    )
+
+    # --- Simulated Data ---
+    np.random.seed(42)
+    weeks = np.arange(1, 53)
+
+    # Simulate Product A promotion weeks
+    promo_A = np.random.choice([0, 1], size=52, p=[0.8, 0.2])
+
+    # Simulate Product B baseline demand
+    baseline_B = 100 + np.random.normal(0, 5, 52)
+
+    # Apply cannibalisation effect (drop during promo weeks)
+    baseline_B = baseline_B - (promo_A * 15)
+
+    df = pd.DataFrame({
+        "week": weeks,
+        "promo_A": promo_A,
+        "baseline_B": baseline_B
+    })
+
+    # --- Calculate Impact ---
+    avg_promo = df[df["promo_A"] == 1]["baseline_B"].mean()
+    avg_nonpromo = df[df["promo_A"] == 0]["baseline_B"].mean()
+
+    effect = avg_promo - avg_nonpromo
+
+    st.metric(
+        "Estimated Cannibalisation Effect",
+        f"{effect:.1f} units per promotion week"
+    )
+
+    # --- Bar Chart ---
+    fig, ax = plt.subplots()
+
+    ax.bar(
+        ["No Promotion", "Promotion"],
+        [avg_nonpromo, avg_promo]
+    )
+
+    ax.set_title("Impact of Product A Promotion on Product B")
+    ax.set_ylabel("Average Baseline Sales")
+
+    st.pyplot(fig)
 
 elif page == "Upload Data":
     st.header("Upload New Data")
@@ -253,30 +302,6 @@ if st.sidebar.button("+ Add Widget"):
 if st.sidebar.button("Clear All Widgets"):
     st.session_state.widgets = []
     st.rerun()
-
-with st.sidebar:
-    with st.popover("Click to Import Layout"):
-        csvLayout = st.file_uploader(
-            "Import Layout",
-            type=["csv"],
-        )
-
-        if csvLayout:
-            importLayout(csvLayout)
-            st.rerun()
-
-with st.sidebar:
-    with st.popover("Click to Export Layout"):
-        csv = exportLayout()
-        st.download_button(
-            label="Ready for Download",
-            data=csv,
-            file_name="layout.csv",
-            mime="text/csv",
-            icon=":material/download:",
-            on_click="rerun",
-        )
-
 
 with st.sidebar:
     with st.popover("Click to Import Layout"):
