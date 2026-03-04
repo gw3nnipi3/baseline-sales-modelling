@@ -1,22 +1,9 @@
 import streamlit as st
 import pandas as pd
-from pathlib import Path
 from typing import Any
-from datetime import date
-
-# NOTE: Global variables
-WIDGET_SETTING = [
-    "WIDGET_INDEX",
-    "DATA_SOURCE",
-    "DISPLAY_TYPE",
-    "PRODUCT_SKU_CODE",
-    "START_DATE",
-    "END_DATE",
-]
-
-WIDGET_DISPLAY_TYPE = ["Line", "Bar", "Scatter"]
-
-WIDGET_COLUMN_COUNT = 2
+from utils.data_tools import *
+from utils.global_const import *
+import ast
 
 # NOTE: Widget render function
 
@@ -24,46 +11,132 @@ WIDGET_COLUMN_COUNT = 2
 def renderWidget(widget: dict[str, Any]):
     data_source = widget["DATA_SOURCE"]
     display_type = widget["DISPLAY_TYPE"]
-
-    df = pd.DataFrame({})
-    if data_source.endswith(".csv"):
-        df = pd.read_csv(f"data/{data_source}")
-    elif data_source.endswith(".xlsx"):
-        df = pd.read_excel(f"data/{data_source}")
-    else:
-        st.error("invalid file format")
-
-    product_sku_code = widget.get("PRODUCT_SKU_CODE", None)
-    sku_codes = df["product_sku_code"].unique().tolist()
-    default_idx = (
-        0 if product_sku_code not in sku_codes else sku_codes.index(product_sku_code)
-    )
-
     widget_idx = widget["WIDGET_INDEX"]
-    product_sku_code = st.selectbox(
-        "Product Code",
-        sku_codes,
-        key=f"{widget_idx}_sku",
-        index=default_idx,
+
+    # NOTE: REVAMPED RENDER WIGET
+    df = pd.DataFrame({})
+    df = load_data(data_source)
+
+    widget["FILTERS"] = (
+        {key: "----- SELECT -----" for key in FILTER_LIST}
+        if not widget["FILTERS"]
+        else widget["FILTERS"]
     )
-    widget["PRODUCT_SKU_CODE"] = product_sku_code
 
-    # print("+++++++++++")
-    # print(widget["WIDGET_INDEX"])
-    # print(st.session_state.widgets)
-    # print("+++++++++++")
-    df = df[df["product_sku_code"] == product_sku_code]
-    df = df.set_index("yearweek")[["nielsen_total_volume"]]
+    with st.popover("Options"):
+        filter_selection = "Concise"
+        filter_selection = st.pills(
+            "Filter Type",
+            ["Concise", "Verbose"],
+            selection_mode="single",
+            default="Concise",
+            key=f"{widget_idx}_filter_selection",
+        )
 
-    match display_type:
-        case "Line":
-            _ = st.line_chart(df)
-        case "Bar":
-            _ = st.bar_chart(df)
-        case "Scatter":
-            _ = st.scatter_chart(df)
-        case _:
-            pass
+        valid_options = get_valid_options(data_source, widget["FILTERS"])
+
+        print("-------------------------- RENDER WIDGET --------------------------")
+        print(widget)
+        print("-------------------------- RENDER WIDGET --------------------------")
+        if filter_selection == "Concise":
+            for key in FILTER_LIST:
+                if key not in ["product_sku_code", "customer"]:
+                    continue
+
+                current_value = widget["FILTERS"][key]
+                print(key, current_value)
+                safe_index = 0
+                if current_value in valid_options[key]:
+                    safe_index = valid_options[key].index(current_value)
+                else:
+                    safe_index = 0
+
+                widget["FILTERS"][key] = st.selectbox(
+                    key,
+                    valid_options[key],
+                    key=f"{widget_idx}_{key}",
+                    index=safe_index,
+                )
+
+                valid_options = get_valid_options(data_source, widget["FILTERS"])
+
+            # print("-------------------------- AFT SELECT --------------------------")
+            # valid_options = get_valid_options(
+            #     data_source, widget["FILTER_TYPE"], widget["FILTERS"]
+            # )
+            # print("-------------------------- AFT SELECT --------------------------")
+        elif filter_selection == "Verbose":
+            for key in FILTER_LIST:
+                if key in ["product_sku_code", "customer"]:
+                    continue
+
+                current_value = widget["FILTERS"][key]
+                print(key, current_value)
+                safe_index = 0
+                if current_value in valid_options[key]:
+                    safe_index = valid_options[key].index(current_value)
+                else:
+                    safe_index = 0
+
+                widget["FILTERS"][key] = st.selectbox(
+                    key,
+                    valid_options[key],
+                    key=f"{widget_idx}_{key}",
+                    index=safe_index,
+                )
+
+                valid_options = get_valid_options(data_source, widget["FILTERS"])
+
+                # print(
+                #     "-------------------------- AFT SELECT II --------------------------"
+                # )
+                # valid_options = get_valid_options(
+                #     data_source, widget["FILTER_TYPE"], widget["FILTERS"]
+                # )
+
+                # print(
+                #     "-------------------------- AFT SELECT II --------------------------"
+                # )
+        else:
+            st.write("Select Filter Type to Continue")
+
+        if st.button("Clear Option", key=f"{widget_idx}_clear_btn"):
+            widget["FILTERS"] = {key: "----- SELECT -----" for key in FILTER_LIST}
+            st.rerun()
+
+    # NOTE:---------------------
+
+    # product_sku_code, customer = (
+    #     widget.get("PRODUCT_SKU_CODE", None),
+    #     widget.get("", None),
+    # )
+    # default_idx = (
+    #     0 if product_sku_code not in sku_codes else sku_codes.index(product_sku_code)
+    # )
+
+    # product_sku_code = st.selectbox(
+    #     "Product Code",
+    #     sku_codes,
+    #     key=f"{widget_idx}_sku",
+    #     index=default_idx,
+    # )
+    # widget["PRODUCT_SKU_CODE"] = product_sku_code
+
+    # # print("+++++++++++")
+    # # print(widget["WIDGET_INDEX"])
+    # # print(st.session_state.widgets)
+    # # print("+++++++++++")
+    # df = process_data(data_source, product_sku_code, customer)
+
+    # match display_type:
+    #     case "Line":
+    #         _ = st.line_chart(df["nielsen_total_volume"])
+    #     case "Bar":
+    #         _ = st.bar_chart(df["nielsen_total_volume"])
+    #     case "Scatter":
+    #         _ = st.scatter_chart(df["nielsen_total_volume"])
+    #     case _:
+    #         pass
 
 
 def renderAll():
@@ -73,9 +146,9 @@ def renderAll():
 
         with widgetCols[col]:
             renderWidget(widget)
-            print("------------------------")
+            print("|||||||||| RENDER ALL ||||||||||")
             print(widget)
-            print("------------------------")
+            print("|||||||||| RENDER ALL ||||||||||")
 
 
 def saveConfig(data_source: str, display_type: str, widget: dict[str, Any] = dict()):
@@ -113,7 +186,7 @@ def exportLayout():
 def importLayout(csvLayout):
     if csvLayout is not None:
         st.session_state.widgets = []
-        dfLayout = pd.read_csv(csvLayout)
+        dfLayout = pd.read_csv(csvLayout, converters={"FILTERS": ast.literal_eval})
         dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
 
         for i in range(len(dfLayout)):

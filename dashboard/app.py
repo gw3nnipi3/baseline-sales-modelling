@@ -68,10 +68,10 @@ with st.sidebar:
         datasets.insert(0, "Pick Dataset")
 
         dataSource = st.selectbox("Data Source", datasets, 0)
-        displayType = st.selectbox("Graph Type", widgetType, 0)
+        displayType = st.selectbox("Graph Type", WIDGET_DISPLAY_TYPE, 0)
 
         if st.button("Save & Add"):
-            saveConfig(dataSource, displayType)
+            saveConfig(dataSource, WIDGET_DISPLAY_TYPE)
             st.rerun()
 
 with st.sidebar:
