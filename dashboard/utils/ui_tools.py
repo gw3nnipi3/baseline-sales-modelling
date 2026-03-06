@@ -1,21 +1,28 @@
 import streamlit as st
 import pandas as pd
 from typing import Any
-from utils.data_tools import *
-from utils.global_const import *
 import ast
+from utils.global_const import (
+    WIDGET_SETTING,
+    WIDGET_DISPLAY_TYPE,
+    WIDGET_COLUMN_COUNT,
+    FILTER_LIST,
+)
+from utils.widget_helpers import (
+    widgetOptionFilter,
+    widgetOptionDate,
+    createKPI,
+    createForecast,
+    createBacktest,
+    createDecomposition,
+)
+
 
 # NOTE: Widget render function
-
-
 def renderWidget(widget: dict[str, Any]):
-    data_source = widget["DATA_SOURCE"]
     display_type = widget["DISPLAY_TYPE"]
     widget_idx = widget["WIDGET_INDEX"]
-
-    # NOTE: REVAMPED RENDER WIGET
-    df = pd.DataFrame({})
-    df = load_data(data_source)
+    widget_title = widget["WIDGET_TITLE"]
 
     widget["FILTERS"] = (
         {key: "----- SELECT -----" for key in FILTER_LIST}
@@ -23,120 +30,45 @@ def renderWidget(widget: dict[str, Any]):
         else widget["FILTERS"]
     )
 
-    with st.popover("Options"):
-        filter_selection = "Concise"
-        filter_selection = st.pills(
-            "Filter Type",
-            ["Concise", "Verbose"],
-            selection_mode="single",
-            default="Concise",
-            key=f"{widget_idx}_filter_selection",
-        )
+    # NOTE: REVAMPED RENDER WIGET
+    title_container = st.empty()
+    title_container.title(f"{widget_title}")
 
-        valid_options = get_valid_options(data_source, widget["FILTERS"])
+    col = st.columns(2)
+    with col[0].popover("Change Title"):
+        new_title = st.text_input("New Title", widget["WIDGET_TITLE"])
+        widget["WIDGET_TITLE"] = new_title
+        title_container.title(new_title)
 
-        print("-------------------------- RENDER WIDGET --------------------------")
-        print(widget)
-        print("-------------------------- RENDER WIDGET --------------------------")
-        if filter_selection == "Concise":
-            for key in FILTER_LIST:
-                if key not in ["product_sku_code", "customer"]:
-                    continue
+    with col[1].popover("Select Product"):
+        # Insert Option Code HERE
+        widgetOptionFilter(widget)
 
-                current_value = widget["FILTERS"][key]
-                print(key, current_value)
-                safe_index = 0
-                if current_value in valid_options[key]:
-                    safe_index = valid_options[key].index(current_value)
-                else:
-                    safe_index = 0
-
-                widget["FILTERS"][key] = st.selectbox(
-                    key,
-                    valid_options[key],
-                    key=f"{widget_idx}_{key}",
-                    index=safe_index,
-                )
-
-                valid_options = get_valid_options(data_source, widget["FILTERS"])
-
-            # print("-------------------------- AFT SELECT --------------------------")
-            # valid_options = get_valid_options(
-            #     data_source, widget["FILTER_TYPE"], widget["FILTERS"]
-            # )
-            # print("-------------------------- AFT SELECT --------------------------")
-        elif filter_selection == "Verbose":
-            for key in FILTER_LIST:
-                if key in ["product_sku_code", "customer"]:
-                    continue
-
-                current_value = widget["FILTERS"][key]
-                print(key, current_value)
-                safe_index = 0
-                if current_value in valid_options[key]:
-                    safe_index = valid_options[key].index(current_value)
-                else:
-                    safe_index = 0
-
-                widget["FILTERS"][key] = st.selectbox(
-                    key,
-                    valid_options[key],
-                    key=f"{widget_idx}_{key}",
-                    index=safe_index,
-                )
-
-                valid_options = get_valid_options(data_source, widget["FILTERS"])
-
-                # print(
-                #     "-------------------------- AFT SELECT II --------------------------"
-                # )
-                # valid_options = get_valid_options(
-                #     data_source, widget["FILTER_TYPE"], widget["FILTERS"]
-                # )
-
-                # print(
-                #     "-------------------------- AFT SELECT II --------------------------"
-                # )
-        else:
-            st.write("Select Filter Type to Continue")
+        # Insert Date Code HERE
+        widgetOptionDate(widget)
 
         if st.button("Clear Option", key=f"{widget_idx}_clear_btn"):
-            widget["FILTERS"] = {key: "----- SELECT -----" for key in FILTER_LIST}
-            st.rerun()
+            widgetOptionFilter(widget, toClear=True)
+            widgetOptionDate(widget, toClear=True)
 
-    # NOTE:---------------------
+    match display_type:
+        case "KPI":
+            createKPI(widget)
+            pass
+        case "Forecast":
+            createForecast(widget)
+            pass
+        case "Backtest Performance":
+            createBacktest(widget)
+            pass
+        case "Decomposition":
+            createDecomposition(widget)
+            pass
+        case _:
+            st.success(f"widget display for {display_type}")
+            pass
 
-    # product_sku_code, customer = (
-    #     widget.get("PRODUCT_SKU_CODE", None),
-    #     widget.get("", None),
-    # )
-    # default_idx = (
-    #     0 if product_sku_code not in sku_codes else sku_codes.index(product_sku_code)
-    # )
-
-    # product_sku_code = st.selectbox(
-    #     "Product Code",
-    #     sku_codes,
-    #     key=f"{widget_idx}_sku",
-    #     index=default_idx,
-    # )
-    # widget["PRODUCT_SKU_CODE"] = product_sku_code
-
-    # # print("+++++++++++")
-    # # print(widget["WIDGET_INDEX"])
-    # # print(st.session_state.widgets)
-    # # print("+++++++++++")
-    # df = process_data(data_source, product_sku_code, customer)
-
-    # match display_type:
-    #     case "Line":
-    #         _ = st.line_chart(df["nielsen_total_volume"])
-    #     case "Bar":
-    #         _ = st.bar_chart(df["nielsen_total_volume"])
-    #     case "Scatter":
-    #         _ = st.scatter_chart(df["nielsen_total_volume"])
-    #     case _:
-    #         pass
+    # NOTE:--------New Widget Render END-------------
 
 
 def renderAll():
@@ -151,13 +83,19 @@ def renderAll():
             print("|||||||||| RENDER ALL ||||||||||")
 
 
-def saveConfig(data_source: str, display_type: str, widget: dict[str, Any] = dict()):
+def saveConfig(
+    widget_title: str,
+    data_source: str,
+    display_type: str,
+    widget: dict[str, Any] = dict(),
+):
     w = dict()
     for s in WIDGET_SETTING:
         w[s] = widget.get(s, None)
 
     w["DATA_SOURCE"] = widget.get("DATA_SOURCE", data_source)
     w["DISPLAY_TYPE"] = widget.get("DISPLAY_TYPE", display_type)
+    w["WIDGET_TITLE"] = widget.get("WIDGET_TITLE", widget_title)
 
     index = 0
     if not widget or not widget.get("WIDGET_INDEX", None):
@@ -194,5 +132,10 @@ def importLayout(csvLayout):
             for s in WIDGET_SETTING:
                 widget[s] = dfLayout[s].iloc[i]
 
-            saveConfig(widget["DATA_SOURCE"], widget["DISPLAY_TYPE"], widget)
+            saveConfig(
+                data_source=widget["DATA_SOURCE"],
+                display_type=widget["DISPLAY_TYPE"],
+                widget_title=widget["WIDGET_TITLE"],
+                widget=widget,
+            )
         st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()

@@ -67,18 +67,32 @@ with st.sidebar:
         datasets = [f.name for f in datasetPath.iterdir() if f.is_file()]
         datasets.insert(0, "Pick Dataset")
 
+        widgetTitle = st.text_input(
+            "Widget Title", f"Widget #{st.session_state.widget_index + 1}"
+        )
         dataSource = st.selectbox("Data Source", datasets, 0)
-        displayType = st.selectbox("Graph Type", WIDGET_DISPLAY_TYPE, 0)
+        displayType = st.selectbox("Display Type", WIDGET_DISPLAY_TYPE, 0)
 
-        if st.button("Save & Add"):
-            saveConfig(dataSource, WIDGET_DISPLAY_TYPE)
-            st.rerun()
+        if dataSource == "Pick Dataset":
+            st.error("Choose a valid dataset")
+
+        else:
+            if st.button("Save & Add"):
+                saveConfig(
+                    data_source=dataSource,
+                    display_type=displayType,
+                    widget_title=widgetTitle,
+                )
+                st.rerun()
 
 with st.sidebar:
     if st.button("Clear All", "clearWidget"):
         st.session_state.widgets = []
         st.session_state.widget_index = 0
-        renderAll()
+        print("xxxxxxxxxxxxxxxxx CLEAR ALL xxxxxxxxxxxxxxxxx")
+        print(st.session_state.widgets)
+        print(st.session_state.widget_index)
+        print("xxxxxxxxxxxxxxxxx CLEAR ALL xxxxxxxxxxxxxxxxx")
         st.rerun()
 
 with st.sidebar:
@@ -88,7 +102,12 @@ with st.sidebar:
             type=["csv"],
         )
 
-    importLayout(csvLayout)
+        if st.button("Confirm Import"):
+            print("||||||||||||||||||| IMPORT CALLED |||||||||||||||||||")
+            print("||||||||||||||||||| IMPORT CALLED |||||||||||||||||||")
+            print("||||||||||||||||||| IMPORT CALLED |||||||||||||||||||")
+            importLayout(csvLayout)
+            st.rerun()
 
 with st.sidebar:
     with st.popover("Click to Export Layout"):

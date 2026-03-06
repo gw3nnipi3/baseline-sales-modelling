@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Any
-from datetime import date
-from utils.global_const import *
+from utils.global_const import (
+    WIDGET_COLUMN_COUNT,
+    WIDGET_DISPLAY_TYPE,
+    WIDGET_SETTING,
+    FILTER_LIST,
+)
 
 
 @st.cache_data
@@ -18,6 +19,9 @@ def load_data(filename: str):
         st.error("Invalid File Format")
 
     # ---------- process date ----------
+    print("---------- PROCESS DATE ----------")
+    print(df.tail())
+    print("---------- PROCESS DATE ----------")
     df["date"] = pd.to_datetime(df["yearweek"].astype(str) + "-1", format="%G%V-%u")
     df = df.sort_values("date", ascending=True)
 
@@ -25,7 +29,8 @@ def load_data(filename: str):
 
 
 def process_data(filename: str, product_sku_code: int | None, customer: str | None):
-    df = load_data(filename)
+    og_df = load_data(filename)
+    df = og_df.copy()
     # ---------- cumulate data ----------
     if product_sku_code and customer:
         df = df[
@@ -40,47 +45,25 @@ def process_data(filename: str, product_sku_code: int | None, customer: str | No
     else:
         df = df.groupby(by=["date"]).sum()
 
-    print("------PROCESS DATA-----")
-    # print(final_display.tail())
-    print(df["nielsen_total_volume"].tail())
-    print("------PROCESS DATA-----")
+    # print("------PROCESS DATA-----")
+    ## print(final_display.tail())
+    # print(df["nielsen_total_volume"].tail())
+    # print("------PROCESS DATA-----")
     return df
 
 
 def get_valid_options(filename: str, filters: dict[str, str]) -> dict[str, list[str]]:
-    filter_list = [
-        "WIDGET_INDEX",
-        "WIDGET_TITLE",
-        "DATA_SOURCE",
-        "DISPLAY_TYPE",
-        "MODEL_TYPE",  # for the future
-        "FILTER_TYPE",
-        "FILTERS",
-    ]
-
     df = load_data(filename)
-    # if filter_type == "Concise":
-    #     for key in FILTER_LIST:
-    #         if filters[key] != "----- SELECT -----":
-    #             df = df[df[key] == filters[key]]
-
-    # elif filter_type == "Verbose":
-    #     for key in FILTER_LIST:
-    #         if filters[key] != "----- SELECT -----":
-    #             df = df[df[key] == filters[key]]
-
-    # else:
-    #     print("INVALID FILTER TYPE")
 
     for key in FILTER_LIST:
         if filters[key] != "----- SELECT -----":
             df = df[df[key].astype(str) == filters[key]]
 
-    print("------PROCESS DATA-----")
-    # print(filters)
+    # print("------PROCESS DATA-----")
+    ## print(filters)
 
-    print(df.tail())
-    print("------PROCESS DATA-----")
+    # print(df.tail())
+    # print("------PROCESS DATA-----")
 
     valid_options = dict()
     for key in filters:

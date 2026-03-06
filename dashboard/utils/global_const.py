@@ -4,12 +4,12 @@ WIDGET_SETTING = [
     "WIDGET_TITLE",
     "DATA_SOURCE",
     "DISPLAY_TYPE",
-    "MODEL_TYPE",  # for the future
-    "FILTER_TYPE",
     "FILTERS",
+    "START_DATE",
+    "END_DATE",
 ]
 
-WIDGET_DISPLAY_TYPE = ["Line", "Bar", "Scatter"]
+WIDGET_DISPLAY_TYPE = ["KPI", "Forecast", "Backtest Performance", "Decomposition"]
 
 WIDGET_COLUMN_COUNT = 2
 
@@ -22,7 +22,3 @@ FILTER_LIST = [
     "pack_size_internal",
     "units_per_package_internal",
 ]
-
-
-def test():
-    return 0
