@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 from typing import Any
-from utils.data_tools import get_kpi_data, load_data, process_data, get_valid_options
-from utils.global_const import (
-    WIDGET_SETTING,
-    WIDGET_DISPLAY_TYPE,
-    WIDGET_COLUMN_COUNT,
-    FILTER_LIST,
+from utils.data_tools import (
+    load_data,
+    process_data,
+    get_valid_options,
+    get_kpi_data,
+    get_forecast_data,
 )
+from utils.global_const import FILTER_LIST
 
 
 def widgetOptionFilter(widget: dict[str, Any], toClear: bool = False):
@@ -160,7 +161,32 @@ def createKPI(widget: dict[str, Any]):
 
 
 def createForecast(widget: dict[str, Any]):
-    return
+    forecast = get_forecast_data(
+        widget["DATA_SOURCE"],
+        widget["FILTERS"],
+        widget["START_DATE"],
+        widget["END_DATE"],
+    )
+
+    observed = process_data(widget["DATA_SOURCE"], widget["FILTERS"])
+    sd = pd.to_datetime(widget["START_DATE"])
+    ed = pd.to_datetime(widget["END_DATE"])
+    start_idx = observed[observed["date"] == sd].index[0]
+    end_idx = observed[observed["date"] == ed].index[0]
+    print("///////////////// FORECAST /////////////////")
+    print(start_idx)
+    print(end_idx)
+    print("///////////////// FORECAST /////////////////")
+
+    st.title("Predicted vs Observed")
+    chart_data = pd.DataFrame({
+        "date": observed["date"].iloc[start_idx:end_idx+1],
+        "Observed": observed["nielsen_total_volume"].iloc[start_idx:end_idx+1],
+        "Predicted": forecast["yhat"].iloc[start_idx:end_idx+1],
+    })
+    chart_data = chart_data.set_index("date")
+
+    st.line_chart(chart_data)
 
 
 def createBacktest(widget: dict[str, Any]):
