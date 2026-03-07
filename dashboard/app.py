@@ -20,26 +20,6 @@ st.write("# Welcome to Dashboard!")
 
 _ = st.sidebar.success("Select a demo above.")
 
-topBar = st.columns(3)
-
-with topBar[0]:
-    heading = st.write("Total Weekly Sales")
-    randomStat = st.write(np.random.randint(0, 100000))
-    pressMe = st.button("Press me", key="pressMe")
-    if pressMe:
-        randomStat = np.random.randint(0, 100000)
-
-with topBar[1]:
-    heading = st.write("another stat")
-    df = pd.DataFrame(np.random.randn(10, 20))
-    _ = st.line_chart(df)
-
-
-with topBar[2]:
-    test = st.write("More stats")
-    if st.toggle("", key="surprise"):
-        _ = st.write("surprise")
-
 
 # NOTE: st.session_state.widget encoding
 # DATA_SOURCE DISPLAY_TYPE (for the future DATE_RANGE)
