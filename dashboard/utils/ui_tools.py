@@ -4,7 +4,6 @@ from typing import Any
 import ast
 from utils.global_const import (
     WIDGET_SETTING,
-    WIDGET_DISPLAY_TYPE,
     WIDGET_COLUMN_COUNT,
     FILTER_LIST,
 )
@@ -87,7 +86,7 @@ def saveConfig(
     widget_title: str,
     data_source: str,
     display_type: str,
-    widget: dict[str, Any] = dict(),
+    widget: dict[str, Any] = dict()
 ):
     w = dict()
     for s in WIDGET_SETTING:
@@ -124,7 +123,8 @@ def exportLayout():
 def importLayout(csvLayout):
     if csvLayout is not None:
         st.session_state.widgets = []
-        dfLayout = pd.read_csv(csvLayout, converters={"FILTERS": ast.literal_eval})
+        dfLayout = pd.read_csv(csvLayout, converters={
+                               "FILTERS": ast.literal_eval})
         dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
 
         for i in range(len(dfLayout)):

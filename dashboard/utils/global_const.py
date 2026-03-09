@@ -9,7 +9,8 @@ WIDGET_SETTING = [
     "END_DATE",
 ]
 
-WIDGET_DISPLAY_TYPE = ["KPI", "Forecast", "Backtest Performance", "Decomposition"]
+WIDGET_DISPLAY_TYPE = ["KPI", "Forecast",
+                       "Backtest Performance", "Decomposition"]
 
 WIDGET_COLUMN_COUNT = 2
 

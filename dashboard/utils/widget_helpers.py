@@ -6,7 +6,7 @@ from utils.data_tools import (
     process_data,
     get_valid_options,
     get_kpi_data,
-    get_forecast_data,
+    get_forecast_model,
 )
 from utils.global_const import FILTER_LIST
 
@@ -142,9 +142,9 @@ def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
     widget["START_DATE"] = start_date
     widget["END_DATE"] = end_date
 
-    print("--------------OPTION DATE--------------")
-    print(widget)
-    print("--------------OPTION DATE--------------")
+    # print("--------------OPTION DATE--------------")
+    # print(widget)
+    # print("--------------OPTION DATE--------------")
 
 
 def createKPI(widget: dict[str, Any]):
@@ -157,11 +157,10 @@ def createKPI(widget: dict[str, Any]):
 
     deltaPercent = f"{delta * 100:.1f}%"
     st.metric("Total Sales", value=value, delta=deltaPercent)
-    return
 
 
 def createForecast(widget: dict[str, Any]):
-    forecast = get_forecast_data(
+    forecast = get_forecast_model(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
         widget["START_DATE"],
@@ -171,18 +170,14 @@ def createForecast(widget: dict[str, Any]):
     observed = process_data(widget["DATA_SOURCE"], widget["FILTERS"])
     sd = pd.to_datetime(widget["START_DATE"])
     ed = pd.to_datetime(widget["END_DATE"])
-    start_idx = observed[observed["date"] == sd].index[0]
-    end_idx = observed[observed["date"] == ed].index[0]
-    print("///////////////// FORECAST /////////////////")
-    print(start_idx)
-    print(end_idx)
-    print("///////////////// FORECAST /////////////////")
+    start_idx = observed[observed["date"] >= sd].index[0]
+    end_idx = observed[observed["date"] <= ed].index[-1]
 
-    st.title("Predicted vs Observed")
+    st.write("### Predicted vs Observed")
     chart_data = pd.DataFrame({
         "date": observed["date"].iloc[start_idx:end_idx+1],
         "Observed": observed["nielsen_total_volume"].iloc[start_idx:end_idx+1],
-        "Predicted": forecast["yhat"].iloc[start_idx:end_idx+1],
+        "Predicted": forecast["yhat"],
     })
     chart_data = chart_data.set_index("date")
 
@@ -190,8 +185,46 @@ def createForecast(widget: dict[str, Any]):
 
 
 def createBacktest(widget: dict[str, Any]):
+
     return
 
 
 def createDecomposition(widget: dict[str, Any]):
-    return
+    forecast = get_forecast_model(
+        widget["DATA_SOURCE"],
+        widget["FILTERS"],
+        widget["START_DATE"],
+        widget["END_DATE"],
+    )
+
+    st.write("### Decomposition")
+    st.write("#### Seasonal Baseline")
+    seasonal_data = pd.DataFrame({
+        "date": forecast["ds"],
+        "baseline": forecast["yhat"] - forecast["promo"],
+    })
+    seasonal_data = seasonal_data.set_index("date")
+    st.line_chart(seasonal_data)
+
+    st.write("#### Promotion Uplift")
+    promotion_data = pd.DataFrame({
+        "date": forecast["ds"],
+        "uplift": forecast["promo"],
+    })
+    promotion_data = promotion_data.set_index("date")
+    st.line_chart(promotion_data)
+
+    st.write("#### Residuals")
+    observed = process_data(widget["DATA_SOURCE"], widget["FILTERS"])
+    sd = pd.to_datetime(widget["START_DATE"])
+    ed = pd.to_datetime(widget["END_DATE"])
+    start_idx = observed[observed["date"] >= sd].index[0]
+    end_idx = observed[observed["date"] <= ed].index[-1]
+    observed = observed.iloc[start_idx:end_idx+1]
+
+    residual_data = pd.DataFrame({
+        "date": forecast["ds"],
+        "residual": observed["nielsen_total_volume"] - forecast["yhat"],
+    })
+    residual_data = residual_data.set_index("date")
+    st.line_chart(residual_data)

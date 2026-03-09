@@ -1,12 +1,18 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from pathlib import Path
-from utils.ui_tools import *
+from utils.global_const import WIDGET_DISPLAY_TYPE
+from utils.ui_tools import (
+    renderAll,
+    saveConfig,
+    exportLayout,
+    importLayout,
+)
 
 st.set_page_config(
     page_title="Dashboard",
     page_icon="👋",
+    layout="wide",
 )
 
 if "widgets" not in st.session_state:
@@ -29,7 +35,8 @@ renderAll()
 # NOTE: side bar buttons
 with st.sidebar:
     with st.popover("Upload dataset"):
-        uploaded_dataset = st.file_uploader("Upload dataset", type=["csv", "xlsx"])
+        uploaded_dataset = st.file_uploader(
+            "Upload dataset", type=["csv", "xlsx"])
         if uploaded_dataset:
             if uploaded_dataset.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_dataset)

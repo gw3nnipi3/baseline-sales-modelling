@@ -20,14 +20,45 @@ def load_data(filename: str):
         st.error("Invalid File Format")
 
     # ---------- process date ----------
-    print("---------- PROCESS DATE ----------")
-    print(df.tail())
-    print("---------- PROCESS DATE ----------")
+    # print("---------- PROCESS DATE ----------")
+    # print(df.tail())
+    # print("---------- PROCESS DATE ----------")
     df["date"] = pd.to_datetime(
         df["yearweek"].astype(str) + "-1", format="%G%V-%u")
     df = df.sort_values("date", ascending=True)
 
-    return df
+    # ------------ clean data ------------
+    all_dates = pd.DataFrame({"date": pd.date_range(
+        start=df["date"].min(), end=df["date"].max(), freq="W-MON"
+    )})
+    all_products = pd.DataFrame(
+        {"product_sku_code": df["product_sku_code"].unique()})
+
+    cleaned_df = all_dates.merge(all_products, how="cross")
+
+    complete_df = cleaned_df.merge(
+        df, on=["date", "product_sku_code"], how="left")
+
+    target_cols = complete_df.columns.difference(
+        ["product_sku_code", "date", "nielsen_total_volume", "promotion_indicator"])
+
+    lookup_table = df.drop_duplicates(
+        "product_sku_code").set_index("product_sku_code")
+
+    for col in target_cols:
+        complete_df[col] = complete_df[col].fillna(
+            complete_df["product_sku_code"].map(lookup_table[col]))
+    complete_df["nielsen_total_volume"] = complete_df["nielsen_total_volume"].fillna(
+        0)
+    complete_df["promotion_indicator"] = complete_df["promotion_indicator"].fillna(
+        0)
+
+    print("--------------- COMPLETE DATA ---------------")
+    print(complete_df.tail())
+    # print(complete_df[["product_sku_code", "nielsen_total_volume"]].tail)
+    print("--------------- COMPLETE DATA ---------------")
+
+    return complete_df
 
 
 def get_valid_options(
@@ -67,10 +98,10 @@ def process_data(filename: str, filters: dict[str, str]):
         df = df[df[key] == match_value]
 
     df = df.groupby(by=["date"], as_index=False).sum()
-    print("||||||| PROCESS DATA |||||||")
-    print(df.tail())
-    print(df.columns)
-    print("||||||| PROCESS DATA |||||||")
+    # print("||||||| PROCESS DATA |||||||")
+    # print(df.tail())
+    # print(df.columns)
+    # print("||||||| PROCESS DATA |||||||")
     return df
 
 
@@ -100,7 +131,7 @@ def get_kpi_data(
     return this_range, pct_change
 
 
-def get_forecast_data(
+def get_forecast_model(
     filename: str, filters: dict[str, str], start_date: str, end_date: str
 ):
     df = process_data(filename, filters)
@@ -109,7 +140,10 @@ def get_forecast_data(
 
     sd = pd.to_datetime(start_date)
     ed = pd.to_datetime(end_date)
-    forecast = forecast[df["date"].between(sd, ed)]
+    print("-------------------- FORECAST --------------------")
+    print(df.info())
+    print("-------------------- FORECAST --------------------")
+    forecast = forecast[forecast["ds"].between(sd, ed)]
     # forecast['yhat'] = total prediction
     # forecast['yhat'] - forecast['promo'] = seasonality
     # forecast['promo'] = promotion

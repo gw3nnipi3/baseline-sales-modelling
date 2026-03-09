@@ -6,7 +6,7 @@ from prophet import Prophet
 
 @st.cache_data
 def run_prophet_model(df: pd.DataFrame):
-    promo_weeks = df[df["promotion_indicator"] == 1]
+    promo_weeks = df[df["promotion_indicator"] != 0]
 
     holidays_df = pd.DataFrame(
         {
@@ -21,6 +21,10 @@ def run_prophet_model(df: pd.DataFrame):
         {"ds": pd.to_datetime(df["date"]), "y": df["nielsen_total_volume"]}
     )
 
+    print("&&&&&&&&&&&&&&&&&&&&& RUN PROPHET MODEL &&&&&&&&&&&&&&&&&&&&&")
+    print(f"Promo weeks found  :  {len(promo_weeks)}")
+    print(df["promotion_indicator"].tail())
+    print("&&&&&&&&&&&&&&&&&&&&& RUN PROPHET MODEL &&&&&&&&&&&&&&&&&&&&&")
     model = Prophet(
         holidays=holidays_df,
         yearly_seasonality=True,
