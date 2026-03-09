@@ -6,9 +6,11 @@ from utils.data_tools import (
     process_data,
     get_valid_options,
     get_kpi_data,
-    get_forecast_model,
+    get_forecast_df,
+    get_performance_metrics,
 )
 from utils.global_const import FILTER_LIST
+from prophet.plot import plot_cross_validation_metric
 
 
 def widgetOptionFilter(widget: dict[str, Any], toClear: bool = False):
@@ -160,7 +162,7 @@ def createKPI(widget: dict[str, Any]):
 
 
 def createForecast(widget: dict[str, Any]):
-    forecast = get_forecast_model(
+    forecast = get_forecast_df(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
         widget["START_DATE"],
@@ -185,12 +187,27 @@ def createForecast(widget: dict[str, Any]):
 
 
 def createBacktest(widget: dict[str, Any]):
+    df_cv = get_performance_metrics(
+        widget["DATA_SOURCE"],
+        widget["FILTERS"],
+    )
 
-    return
+    rmse_fig = plot_cross_validation_metric(df_cv, metric='rmse')
+    mape_fig = plot_cross_validation_metric(df_cv, metric='mape')
+    mae_fig = plot_cross_validation_metric(df_cv, metric='mae')
+
+    st.write("### RMSE")
+    st.pyplot(rmse_fig)
+
+    st.write("### MAPE")
+    st.pyplot(mape_fig)
+
+    st.write("### MAE")
+    st.pyplot(mae_fig)
 
 
 def createDecomposition(widget: dict[str, Any]):
-    forecast = get_forecast_model(
+    forecast = get_forecast_df(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
         widget["START_DATE"],
@@ -198,10 +215,19 @@ def createDecomposition(widget: dict[str, Any]):
     )
 
     st.write("### Decomposition")
-    st.write("#### Seasonal Baseline")
+    st.write("#### Trend")
+    trend_data = pd.DataFrame({
+        "date": forecast["ds"],
+        "baseline": forecast["trend"],
+    })
+    trend_data = trend_data.set_index("date")
+    st.line_chart(trend_data)
+
+    st.write("#### Seasonal Sales")
     seasonal_data = pd.DataFrame({
         "date": forecast["ds"],
-        "baseline": forecast["yhat"] - forecast["promo"],
+        "baseline": forecast["yhat"] - forecast["extra_regressors_additive"],
+        # "baseline": forecast["trend"] * forecast["multiplicative_terms"],
     })
     seasonal_data = seasonal_data.set_index("date")
     st.line_chart(seasonal_data)
@@ -209,7 +235,8 @@ def createDecomposition(widget: dict[str, Any]):
     st.write("#### Promotion Uplift")
     promotion_data = pd.DataFrame({
         "date": forecast["ds"],
-        "uplift": forecast["promo"],
+        "uplift": forecast["extra_regressors_additive"],
+        # "uplift": forecast["trend"]*forecast["extra_regressors_multiplicative"],
     })
     promotion_data = promotion_data.set_index("date")
     st.line_chart(promotion_data)

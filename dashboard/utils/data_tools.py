@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from src.models.prophet_model import run_prophet_model
+from prophet.diagnostics import cross_validation, performance_metrics
 from utils.global_const import (
     WIDGET_COLUMN_COUNT,
     WIDGET_DISPLAY_TYPE,
@@ -97,6 +98,17 @@ def process_data(filename: str, filters: dict[str, str]):
             match_value = int(match_value)
         df = df[df[key] == match_value]
 
+    # all_codes = df["product_sku_code"].unique()
+    # new_columns = {}
+    # for code in all_codes:
+    #    new_columns[f"{code}_promotion_indicator"] = (
+    #        (df["product_sku_code"] == code) &
+    #        (df["promotion_indicator"] == 1)
+    #    ).astype(int)
+    # df = pd.concat([df, pd.DataFrame(new_columns)], axis=1)
+    # df = df.drop(columns=["promotion_indicator", "product_sku_code"])
+
+    df = df.drop(columns=["product_sku_code"])
     df = df.groupby(by=["date"], as_index=False).sum()
     # print("||||||| PROCESS DATA |||||||")
     # print(df.tail())
@@ -131,20 +143,40 @@ def get_kpi_data(
     return this_range, pct_change
 
 
-def get_forecast_model(
+def get_forecast_df(
     filename: str, filters: dict[str, str], start_date: str, end_date: str
 ):
     df = process_data(filename, filters)
-    forecast = run_prophet_model(df)
+    model, prophet_df = run_prophet_model(df)
+    forecast = model.predict(prophet_df)
     forecast = forecast.reset_index()
 
     sd = pd.to_datetime(start_date)
     ed = pd.to_datetime(end_date)
     print("-------------------- FORECAST --------------------")
-    print(df.info())
+    print(forecast.tail())
     print("-------------------- FORECAST --------------------")
     forecast = forecast[forecast["ds"].between(sd, ed)]
     # forecast['yhat'] = total prediction
-    # forecast['yhat'] - forecast['promo'] = seasonality
-    # forecast['promo'] = promotion
+    # forecast['yhat'] - forecast['extra_regressors_additive'] = seasonality
+    # forecast['extra_regressors_additive'] = promotion
     return forecast
+
+
+@st.cache_data
+def get_performance_metrics(
+    filename: str, filters: dict[str, str]
+) -> pd.DataFrame:
+    df = process_data(filename, filters)
+    model, prophet_df = run_prophet_model(df)
+
+    df_cv = cross_validation(
+        model,
+        initial="366 days",
+        period="90 days",
+        horizon="180 days",
+        parallel="processes",
+    )
+
+    # df_metrics = performance_metrics(df_cv)
+    return df_cv
