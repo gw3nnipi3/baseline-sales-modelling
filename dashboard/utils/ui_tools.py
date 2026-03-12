@@ -12,6 +12,7 @@ from utils.widget_helpers import (
     widgetOptionDate,
     createKPI,
     createForecast,
+    createPredObs,
     createBacktest,
     createDecomposition,
 )
@@ -56,6 +57,9 @@ def renderWidget(widget: dict[str, Any]):
             pass
         case "Forecast":
             createForecast(widget)
+            pass
+        case "Predicted Vs. Observed":
+            createPredObs(widget)
             pass
         case "Backtest Performance":
             createBacktest(widget)
@@ -123,8 +127,16 @@ def exportLayout():
 def importLayout(csvLayout):
     if csvLayout is not None:
         st.session_state.widgets = []
-        dfLayout = pd.read_csv(csvLayout, converters={
-                               "FILTERS": ast.literal_eval})
+        dfLayout = pd.read_csv(csvLayout)
+        dfLayout = dfLayout.reindex(columns=WIDGET_SETTING)
+
+        cols_to_convert = ["FILTERS", "PROMOTION_WINDOWS"]
+        # this is for backward compatibility
+        for col in cols_to_convert:
+            dfLayout[col] = dfLayout[col].apply(
+                lambda x: ast.literal_eval(x, str)
+            )
+
         dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
 
         for i in range(len(dfLayout)):
@@ -138,4 +150,4 @@ def importLayout(csvLayout):
                 widget_title=widget["WIDGET_TITLE"],
                 widget=widget,
             )
-        st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
+            st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()

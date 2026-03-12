@@ -98,16 +98,6 @@ def process_data(filename: str, filters: dict[str, str]):
             match_value = int(match_value)
         df = df[df[key] == match_value]
 
-    # all_codes = df["product_sku_code"].unique()
-    # new_columns = {}
-    # for code in all_codes:
-    #    new_columns[f"{code}_promotion_indicator"] = (
-    #        (df["product_sku_code"] == code) &
-    #        (df["promotion_indicator"] == 1)
-    #    ).astype(int)
-    # df = pd.concat([df, pd.DataFrame(new_columns)], axis=1)
-    # df = df.drop(columns=["promotion_indicator", "product_sku_code"])
-
     df = df.drop(columns=["product_sku_code"])
     df = df.groupby(by=["date"], as_index=False).sum()
     # print("||||||| PROCESS DATA |||||||")
@@ -144,6 +134,46 @@ def get_kpi_data(
 
 
 def get_forecast_df(
+    filename: str, filters: dict[str, str], target_date: pd.Timestamp
+):
+    df = process_data(filename, filters)
+    model, prophet_df = run_prophet_model(df)
+    prophet_df["ds"] = pd.to_datetime(prophet_df["ds"])
+    target_date = pd.to_datetime(target_date)
+
+    current_max = prophet_df["ds"].max()
+
+    new_dates = pd.date_range(
+        start=current_max + pd.Timedelta(weeks=1),
+        end=target_date,
+        freq="W-MON"
+    )
+
+    future_df = pd.DataFrame({"ds": new_dates, "promotion_indicator": 0})
+    pred = model.predict(future_df)
+
+    history = pd.DataFrame({
+        "date": prophet_df["ds"],
+        "actual": prophet_df["y"],
+        "forecast": None,
+        "lower": None,
+        "upper": None,
+    })
+
+    forecast = pd.DataFrame({
+        "date": new_dates,
+        "actual": None,
+        "forecast": pred["yhat"],
+        "lower": pred["yhat_lower"],
+        "upper": pred["yhat_upper"],
+    })
+
+    final_df = pd.concat([history, forecast], ignore_index=True)
+
+    return final_df
+
+
+def get_pred_obs_df(
     filename: str, filters: dict[str, str], start_date: str, end_date: str
 ):
     df = process_data(filename, filters)

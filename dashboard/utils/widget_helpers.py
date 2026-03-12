@@ -7,6 +7,7 @@ from utils.data_tools import (
     get_valid_options,
     get_kpi_data,
     get_forecast_df,
+    get_pred_obs_df,
     get_performance_metrics,
 )
 from utils.global_const import FILTER_LIST
@@ -90,6 +91,8 @@ def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
     data_source = widget["DATA_SOURCE"]
     df = load_data(data_source)
 
+    # WARNING: prob do not need this now that
+    # all sku code data are cleaned to have 0 sales
     valid_weeks = df["date"].dt.strftime("%Y-%m-%d").unique().tolist()
 
     if toClear:
@@ -100,12 +103,6 @@ def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
         widget["END_DATE"] = valid_weeks[-1]
         return
 
-    is_custom = st.toggle(
-        "Custom Range",
-        key=f"{widget['WIDGET_INDEX']}",
-        value=True,
-    )
-
     start_date = widget.get("START_DATE", None)
     if not start_date:
         start_date = valid_weeks[0]
@@ -113,36 +110,53 @@ def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
     if not end_date:
         end_date = valid_weeks[-1]
 
-    if is_custom:
-        start_date, end_date = st.select_slider(
-            "Select Date Range",
-            options=valid_weeks,
-            value=(start_date, end_date),
-            key=f"{widget_idx}_custom_date_slider",
+    if widget["DISPLAY_TYPE"] != "Forecast":
+        is_custom = st.toggle(
+            "Custom Range",
+            key=f"{widget['WIDGET_INDEX']}",
+            value=True,
         )
+        if is_custom:
+            start_date, end_date = st.select_slider(
+                "Select Date Range",
+                options=valid_weeks,
+                value=(start_date, end_date),
+                key=f"{widget_idx}_custom_date_slider",
+            )
 
+        else:
+            cols = st.columns(2)
+            end_date = cols[0].select_slider(
+                "Select End Date",
+                options=valid_weeks,
+                value=end_date,
+                key=f"{widget_idx}_preset_date_slider",
+            )
+
+            preset = cols[1].selectbox(
+                "Select Range (in weeks)",
+                options=[1, 4, 13, 52],
+                key=f"{widget_idx}_preset_date_selectbox",
+            )
+
+            sd = pd.to_datetime(end_date) - pd.Timedelta(weeks=preset - 1)
+            min_date = pd.to_datetime(valid_weeks[0])
+            sd = sd if sd >= min_date else min_date
+            start_date = sd.strftime("%Y-%m-%d")
+
+        widget["START_DATE"] = start_date
+        widget["END_DATE"] = end_date
     else:
         cols = st.columns(2)
-        end_date = cols[0].select_slider(
-            "Select End Date",
+        start_date = cols[0].select_slider(
+            "Select Start Date",
             options=valid_weeks,
-            value=end_date,
-            key=f"{widget_idx}_preset_date_slider",
+            value=start_date,
+            key=f"{widget_idx}_forecast_date_slider",
         )
 
-        preset = cols[1].selectbox(
-            "Select Range (in weeks)",
-            options=[1, 4, 13, 52],
-            key=f"{widget_idx}_preset_date_selectbox",
-        )
-
-        sd = pd.to_datetime(end_date) - pd.Timedelta(weeks=preset - 1)
-        min_date = pd.to_datetime(valid_weeks[0])
-        sd = sd if sd >= min_date else min_date
-        start_date = sd.strftime("%Y-%m-%d")
-
-    widget["START_DATE"] = start_date
-    widget["END_DATE"] = end_date
+        widget["START_DATE"] = start_date
+        widget["END_DATE"] = valid_weeks[-1]
 
     # print("--------------OPTION DATE--------------")
     # print(widget)
@@ -162,7 +176,86 @@ def createKPI(widget: dict[str, Any]):
 
 
 def createForecast(widget: dict[str, Any]):
-    forecast = get_forecast_df(
+    widget_idx = widget["WIDGET_INDEX"]
+
+    st.write("### Forecast")
+    chart_box = st.empty()
+
+    forecast_len = (
+        int(widget["FORECAST_LENGTH"][:-1])
+        if widget["FORECAST_LENGTH"] else 1
+    )
+    time_period = "weeks"
+    if widget["FORECAST_LENGTH"]:
+        match(widget["FORECAST_LENGTH"][-1]):
+            case "W":
+                time_period = "weeks"
+            case "M":
+                time_period = "months (4 weeks)"
+            case "Y":
+                time_period = "years (52 weeks)"
+
+    with st.popover("Configure Forecast"):
+        with st.form(f"{widget_idx}_forecast_config"):
+            cols = st.columns(2)
+            forecast_len = cols[0].number_input(
+                "Forecast Window:",
+                value=forecast_len,
+                min_value=1,
+                max_value=1000,
+                key=f"{widget_idx}_forecast_window_input"
+            )
+
+            period_options = ["weeks", "months (4 weeks)", "years (52 weeks)"]
+            time_period = cols[1].selectbox(
+                "Time Period:",
+                options=period_options,
+                key=f"{widget_idx}_time_period",
+                index=period_options.index(time_period)
+            )
+
+            start_forecast_date = pd.to_datetime(widget["END_DATE"])
+            time_delta = pd.Timedelta(1, "W")
+            match(time_period):
+                case "weeks":
+                    time_delta = pd.Timedelta(forecast_len, "W")
+                case "months (4 weeks)":
+                    time_delta = pd.Timedelta(4 * forecast_len, "W")
+                case "years (52 weeks)":
+                    time_delta = pd.Timedelta(52 * forecast_len, "W")
+
+            end_forecast_date = start_forecast_date + time_delta
+
+            # cols = st.columns(2)
+            # promo_start_date = cols[0].
+
+            # promo_length = cols[1].number_input(
+            #     "Promotion Length (weeks):",
+            #     value=3,
+            #     min_value=1,
+            #     max_value=1000,
+            #     key=f"{widget_idx}_promo_len_input"
+            # )
+
+            st.form_submit_button(
+                'Save Config',
+                key=f"{widget_idx}_submit_forecast_config_btn"
+            )
+
+    forecast_df = get_forecast_df(
+        widget["DATA_SOURCE"],
+        widget["FILTERS"],
+        end_forecast_date
+    )
+    chart_data = forecast_df.set_index("date")
+    # st.write(start_forecast_date)
+    # st.write(end_forecast_date)
+    chart_box.line_chart(chart_data[["actual", "forecast", "lower", "upper"]])
+    print(forecast_df.tail())
+
+
+def createPredObs(widget: dict[str, Any]):
+    forecast = get_pred_obs_df(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
         widget["START_DATE"],
@@ -207,7 +300,7 @@ def createBacktest(widget: dict[str, Any]):
 
 
 def createDecomposition(widget: dict[str, Any]):
-    forecast = get_forecast_df(
+    forecast = get_pred_obs_df(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
         widget["START_DATE"],

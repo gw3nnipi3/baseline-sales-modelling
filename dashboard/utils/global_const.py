@@ -7,10 +7,15 @@ WIDGET_SETTING = [
     "FILTERS",
     "START_DATE",
     "END_DATE",
+    "FORECAST_LENGTH",  # only for forecast e.g."1Y" = 1 yr "1W" = 1 wk "1M" = 1 month
+    "PROMOTION_WINDOWS",  # only for forecast
 ]
 
-WIDGET_DISPLAY_TYPE = ["KPI", "Forecast",
-                       "Backtest Performance", "Decomposition"]
+WIDGET_DISPLAY_TYPE = ["KPI",
+                       "Forecast",
+                       "Decomposition",
+                       "Predicted Vs. Observed",
+                       "Backtest Performance"]
 
 WIDGET_COLUMN_COUNT = 2
 
