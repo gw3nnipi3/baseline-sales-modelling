@@ -179,10 +179,22 @@ def createKPI(widget: dict[str, Any]):
     st.metric("Total Sales", value=value, delta=deltaPercent)
 
 
-def createForecastOption(
-        widget: dict[str, Any],
-        forecast_len: int,
-        time_period: str):
+def processForecastLength(forecast_len_str: str) -> (int, str, pd.Timedelta):
+    forecast_length = int(forecast_len_str[:-1])
+    match(forecast_len_str[-1]):
+        case "W":
+            time_delta = pd.Timedelta(forecast_length*1, "W")
+            time_period = "weeks"
+        case "M":
+            time_delta = pd.Timedelta(forecast_length*4, "W")
+            time_period = "months (4 weeks)"
+        case "Y":
+            time_delta = pd.Timedelta(forecast_length*52, "W")
+            time_period = "years (52 weeks)"
+    return forecast_length, time_period, time_delta
+
+
+def createForecastOption(widget: dict[str, Any]):
     widget_idx = widget["WIDGET_INDEX"]
     # forecast_len = int(widget["FORECAST_LENGTH"][:-1])
     # time_period = "weeks"
@@ -210,6 +222,8 @@ def createForecastOption(
     #             time_period = "months (4 weeks)"
     #         case "Y":
     #             time_period = "years (52 weeks)"
+    forecast_len, time_period, _ = processForecastLength(
+        widget["FORECAST_LENGTH"])
 
     # NOTE: real render
     cols = st.columns(2)
@@ -238,10 +252,7 @@ def createForecastOption(
             widget["FORECAST_LENGTH"] = str(forecast_len)+"Y"
 
 
-def createPromotionOption(
-        widget: dict[str, Any],
-        start_forecast_date: pd.Timestamp,
-        end_forecast_date: pd.Timestamp):
+def createPromotionOption(widget: dict[str, Any]):
     widget_idx = widget["WIDGET_INDEX"]
 
     # # NOTE: Prepare existing value
@@ -262,6 +273,11 @@ def createPromotionOption(
     # window_set = set()
     # if widget["PROMOTION_WINDOWS"]:
     #     window_set = widget["PROMOTION_WINDOWS"]
+    _, _, time_delta = processForecastLength(
+        widget["FORECAST_LENGTH"])
+    start_forecast_date = pd.to_datetime(
+        widget["END_DATE"]) + pd.Timedelta(weeks=1)
+    end_forecast_date = start_forecast_date + time_delta
 
     # NOTE: real render
     window_set = widget["PROMOTION_WINDOWS"]
@@ -299,47 +315,32 @@ def createPromotionOption(
 @st.fragment
 def createForecast(widget: dict[str, Any]):
     # NOTE: prepare existing value
-    forecast_length = 3
-    time_delta = pd.Timedelta(forecast_length*4, "W")  # default value
-    time_period = "months (4 weeks)"
-
-    if not widget.get("FORECAST_LENGTH", None):
-        forecast_length = int(widget["FORECAST_LENGTH"][:-1])
-        match(widget["FORECAST_LENGTH"][-1]):
-            case "W":
-                time_delta = pd.Timedelta(forecast_length*1, "W")
-                time_period = "weeks"
-            case "M":
-                time_delta = pd.Timedelta(forecast_length*4, "W")
-                time_period = "months (4 weeks)"
-            case "Y":
-                time_delta = pd.Timedelta(forecast_length*52, "W")
-                time_period = "years (52 weeks)"
-    else:
+    if widget.get("FORECAST_LENGTH", None):
         widget["FORECAST_LENGTH"] = "3M"
 
     if not widget.get("PROMOTION_WINDOWS", None):
         widget["PROMOTION_WINDOWS"] = set()
-
-    start_forecast_date = (pd.to_datetime(widget["END_DATE"]) +
-                           pd.Timedelta(1, "W"))
-    end_forecast_date = start_forecast_date + time_delta
 
     # NOTE: real render
     st.write("### Forecast")
     chart_box = st.empty()
     cols = st.columns(3)
     with cols[0].popover("Forecast Config"):
-        createForecastOption(widget, forecast_length, time_period)
+        createForecastOption(widget)
 
     with cols[1].popover("Promotion Config"):
-        createPromotionOption(
-            widget, start_forecast_date, end_forecast_date)
+        createPromotionOption(widget)
     # st.write("this is promotion window")
     # st.write(data for data in widget["PROMOTION_WINDOWS"])
     # st.write("promotion window end")
 
     # if cols[2].button("Confirm Config"):
+
+    forecast_length, time_period, time_delta = processForecastLength(
+        widget["FORECAST_LENGTH"])
+    start_forecast_date = (pd.to_datetime(widget["END_DATE"]) +
+                           pd.Timedelta(1, "W"))
+    end_forecast_date = start_forecast_date + time_delta
 
     forecast_df = get_forecast_df(
         widget["DATA_SOURCE"],

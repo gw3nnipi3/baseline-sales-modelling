@@ -147,7 +147,7 @@ def importLayout(csvLayout):
         # this is for backward compatibility
         for col in cols_to_convert:
             dfLayout[col] = dfLayout[col].apply(
-                lambda x: ast.literal_eval(x, str)
+                lambda x: ast.literal_eval(x)
             )
 
         dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
