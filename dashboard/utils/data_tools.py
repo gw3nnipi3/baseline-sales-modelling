@@ -150,6 +150,21 @@ def get_total_matches(filename: str, filters: dict[str, str]):
     return len(df["product_sku_code"].unique())
 
 
+def process_forecast_length(forecast_len_str: str) -> (int, str, pd.Timedelta):
+    forecast_length = int(forecast_len_str[:-1])
+    match(forecast_len_str[-1]):
+        case "W":
+            time_delta = pd.Timedelta(forecast_length*1, "W")
+            time_period = "weeks"
+        case "M":
+            time_delta = pd.Timedelta(forecast_length*4, "W")
+            time_period = "months (4 weeks)"
+        case "Y":
+            time_delta = pd.Timedelta(forecast_length*52, "W")
+            time_period = "years (52 weeks)"
+    return forecast_length, time_period, time_delta
+
+
 def get_forecast_df(
     filename: str, filters: dict[str, str], target_date: pd.Timestamp, promotion_windows: set()
 ):

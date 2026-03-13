@@ -4,6 +4,7 @@ from pathlib import Path
 from utils.global_const import WIDGET_DISPLAY_TYPE
 from utils.ui_tools import (
     renderAll,
+    addWidget,
     saveConfig,
     exportLayout,
     importLayout,
@@ -49,28 +50,7 @@ with st.sidebar:
                 st.success(f"Saved {uploaded_dataset.name} to data/ folder")
 
 with st.sidebar:
-    with st.popover("+ Add Widget"):
-        datasetPath = Path("data/")
-        datasets = [f.name for f in datasetPath.iterdir() if f.is_file()]
-        datasets.insert(0, "Pick Dataset")
-
-        widgetTitle = st.text_input(
-            "Widget Title", f"Widget #{st.session_state.widget_index + 1}"
-        )
-        dataSource = st.selectbox("Data Source", datasets, 0)
-        displayType = st.selectbox("Display Type", WIDGET_DISPLAY_TYPE, 0)
-
-        if dataSource == "Pick Dataset":
-            st.error("Choose a valid dataset")
-
-        else:
-            if st.button("Save & Add"):
-                saveConfig(
-                    data_source=dataSource,
-                    display_type=displayType,
-                    widget_title=widgetTitle,
-                )
-                st.rerun()
+    addWidget()
 
 with st.sidebar:
     if st.button("Clear All", "clearWidget"):

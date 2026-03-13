@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
+from pathlib import Path
 from typing import Any
 import ast
 from utils.global_const import (
     WIDGET_SETTING,
+    WIDGET_DISPLAY_TYPE,
     WIDGET_COLUMN_COUNT,
     FILTER_LIST,
 )
@@ -99,6 +101,32 @@ def renderAll():
             print("|||||||||| RENDER ALL ||||||||||")
 
 
+@st.fragment
+def addWidget():
+    with st.popover("+ Add Widget"):
+        datasetPath = Path("data/")
+        datasets = [f.name for f in datasetPath.iterdir() if f.is_file()]
+        datasets.insert(0, "Pick Dataset")
+
+        widgetTitle = st.text_input(
+            "Widget Title", f"Widget #{st.session_state.widget_index + 1}"
+        )
+        dataSource = st.selectbox("Data Source", datasets, 0)
+        displayType = st.selectbox("Display Type", WIDGET_DISPLAY_TYPE, 0)
+
+        if dataSource == "Pick Dataset":
+            st.error("Choose a valid dataset")
+
+        else:
+            if st.button("Save & Add"):
+                saveConfig(
+                    data_source=dataSource,
+                    display_type=displayType,
+                    widget_title=widgetTitle,
+                )
+                st.rerun()
+
+
 def saveConfig(
     widget_title: str,
     data_source: str,
@@ -137,30 +165,44 @@ def exportLayout():
     return df.to_csv().encode("utf-8")
 
 
+def safeParse(val):
+    if pd.isna(val) or val == "" or val is None:
+        return None
+    try:
+        return ast.literal_eval(str(val))
+    except (ValueError, SyntaxError):
+        return val
+
+
 def importLayout(csvLayout):
-    if csvLayout is not None:
-        st.session_state.widgets = []
-        dfLayout = pd.read_csv(csvLayout)
-        dfLayout = dfLayout.reindex(columns=WIDGET_SETTING)
+    if csvLayout is None:
+        return
 
-        cols_to_convert = ["FILTERS", "PROMOTION_WINDOWS"]
-        # this is for backward compatibility
-        for col in cols_to_convert:
-            dfLayout[col] = dfLayout[col].apply(
-                lambda x: ast.literal_eval(x)
-            )
+    st.session_state.widgets = []
+    dfLayout = pd.read_csv(csvLayout)
+    dfLayout = dfLayout.reindex(columns=WIDGET_SETTING)
 
-        dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
+    # for key in WIDGET_SETTING:
+    #    if key not in dfLayout.columns:
+    #        dfLayout[key] = None
+    # print(dfLayout.tail())
 
-        for i in range(len(dfLayout)):
-            widget = dict()
-            for s in WIDGET_SETTING:
-                widget[s] = dfLayout[s].iloc[i]
+    cols_to_convert = ["FILTERS", "PROMOTION_WINDOWS"]
+    # this is for backward compatibility
+    for col in cols_to_convert:
+        dfLayout[col] = dfLayout[col].apply(safeParse)
 
-            saveConfig(
-                data_source=widget["DATA_SOURCE"],
-                display_type=widget["DISPLAY_TYPE"],
-                widget_title=widget["WIDGET_TITLE"],
-                widget=widget,
-            )
-            st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
+    dfLayout = dfLayout.sort_values(by="WIDGET_INDEX")
+
+    for i in range(len(dfLayout)):
+        widget = dict()
+        for s in WIDGET_SETTING:
+            widget[s] = dfLayout[s].iloc[i]
+
+        saveConfig(
+            data_source=widget["DATA_SOURCE"],
+            display_type=widget["DISPLAY_TYPE"],
+            widget_title=widget["WIDGET_TITLE"],
+            widget=widget,
+        )
+        st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
