@@ -153,23 +153,23 @@ def get_total_matches(filename: str, filters: dict[str, str]):
 def get_forecast_df(
     filename: str, filters: dict[str, str], target_date: pd.Timestamp, promotion_windows: set()
 ):
+    promo_windows_dt = pd.to_datetime(list(promotion_windows))
     total_matches = get_total_matches(filename, filters)
     df = process_data(filename, filters)
     model, prophet_df = run_prophet_model(df)
     prophet_df["ds"] = pd.to_datetime(prophet_df["ds"])
     target_date = pd.to_datetime(target_date)
-
-    current_max = prophet_df["ds"].max()
+    current_date_max = prophet_df["ds"].max()
 
     new_dates = pd.date_range(
-        start=current_max + pd.Timedelta(weeks=1),
+        start=current_date_max + pd.Timedelta(weeks=1),
         end=target_date,
         freq="W-MON"
     )
 
     future_df = pd.DataFrame({"ds": new_dates, "promotion_indicator": 0})
     future_df["promotion_indicator"] = np.where(
-        future_df["ds"].isin(promotion_windows), total_matches, 0
+        future_df["ds"].isin(promo_windows_dt), total_matches, 0
     )
     pred = model.predict(future_df)
 
@@ -193,7 +193,7 @@ def get_forecast_df(
 
     final_df = pd.concat([history, forecast], ignore_index=True)
     print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-    for date in list(promotion_windows):
+    for date in list(promo_windows_dt):
         print(date)
     print(final_df.tail())
     print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")

@@ -257,22 +257,6 @@ def createPromotionOption(widget: dict[str, Any]):
 
     # # NOTE: Prepare existing value
 
-    # forecast_len = (
-    #     int(widget["FORECAST_LENGTH"][:-1])
-    #     if widget["FORECAST_LENGTH"] else 4  # default value
-    # )
-    # time_period = "months (4 weeks)"  # default value
-    # if widget.get("FORECAST_LENGTH", None):
-    #     match(widget["FORECAST_LENGTH"][-1]):
-    #         case "W":
-    #             time_period = "weeks"
-    #         case "M":
-    #             time_period = "months (4 weeks)"
-    #         case "Y":
-    #             time_period = "years (52 weeks)"
-    # window_set = set()
-    # if widget["PROMOTION_WINDOWS"]:
-    #     window_set = widget["PROMOTION_WINDOWS"]
     _, _, time_delta = processForecastLength(
         widget["FORECAST_LENGTH"])
     start_forecast_date = pd.to_datetime(
@@ -304,18 +288,19 @@ def createPromotionOption(widget: dict[str, Any]):
     if cols[0].button("Add Promotion", key=f"{widget_idx}_add_promo_btn"):
         promo_date_list = pd.date_range(
             start=promo_start_date, periods=promo_length, freq="W-MON"
-        ).to_list()
+        ).strftime("%Y-%m-%d").tolist()  # this is a list of strings
+
         window_set.update(promo_date_list)
         widget["PROMOTION_WINDOWS"] = window_set
         # st.write(promo_start_date)
-        st.write(date for date in promo_date_list)
+        st.write(date for date in widget["PROMOTION_WINDOWS"])
         # st.write(date for date in widget["PROMOTION_WINDOWS"])
 
 
 @st.fragment
 def createForecast(widget: dict[str, Any]):
     # NOTE: prepare existing value
-    if widget.get("FORECAST_LENGTH", None):
+    if not widget.get("FORECAST_LENGTH", None):
         widget["FORECAST_LENGTH"] = "3M"
 
     if not widget.get("PROMOTION_WINDOWS", None):

@@ -96,17 +96,19 @@ with st.sidebar:
             importLayout(csvLayout)
             st.rerun()
 
+
 with st.sidebar:
-    with st.popover("Click to Export Layout"):
-        # print("|||||||||||||||||||")
-        # print(st.session_state.widgets)
-        # print("|||||||||||||||||||")
-        csv = exportLayout()
-        st.download_button(
-            label="Ready for Download",
-            data=csv,
-            file_name="layout.csv",
-            mime="text/csv",
-            icon=":material/download:",
-            on_click="rerun",
-        )
+    with st.popover("Export Layout", icon=":material/download:"):
+        st.write("Clicking below will sync all widget changes and prepare your file.")
+
+        generate_btn = st.button("Generate CSV")
+        if generate_btn:
+            csv_data = exportLayout()
+
+            st.download_button(
+                label="Download CSV",
+                data=csv_data,
+                file_name="layout.csv",
+                mime="text/csv",
+                on_click=(lambda: not generate_btn)
+            )
