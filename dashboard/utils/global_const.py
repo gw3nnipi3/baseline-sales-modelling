@@ -8,7 +8,7 @@ WIDGET_SETTING = [
     "START_DATE",
     "END_DATE",
     "FORECAST_LENGTH",  # only for forecast e.g."1Y" = 1 yr "1W" = 1 wk "1M" = 1 month
-    "PROMOTION_WINDOWS",  # only for forecast
+    "PROMOTION_WINDOWS",  # only for forecast this is a set data type
 ]
 
 WIDGET_DISPLAY_TYPE = ["KPI",

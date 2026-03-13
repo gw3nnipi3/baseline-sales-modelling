@@ -1,5 +1,7 @@
 import streamlit as st
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from src.models.prophet_model import run_prophet_model
 from prophet.diagnostics import cross_validation, performance_metrics
 from utils.global_const import (
@@ -133,9 +135,25 @@ def get_kpi_data(
     return this_range, pct_change
 
 
+def get_total_matches(filename: str, filters: dict[str, str]):
+    df = load_data(filename)
+
+    for key in FILTER_LIST:
+        if filters[key] == "----- SELECT -----":
+            continue
+
+        match_value = filters[key]
+        if key == "product_sku_code":
+            match_value = int(match_value)
+        df = df[df[key] == match_value]
+
+    return len(df["product_sku_code"].unique())
+
+
 def get_forecast_df(
-    filename: str, filters: dict[str, str], target_date: pd.Timestamp
+    filename: str, filters: dict[str, str], target_date: pd.Timestamp, promotion_windows: set()
 ):
+    total_matches = get_total_matches(filename, filters)
     df = process_data(filename, filters)
     model, prophet_df = run_prophet_model(df)
     prophet_df["ds"] = pd.to_datetime(prophet_df["ds"])
@@ -150,6 +168,9 @@ def get_forecast_df(
     )
 
     future_df = pd.DataFrame({"ds": new_dates, "promotion_indicator": 0})
+    future_df["promotion_indicator"] = np.where(
+        future_df["ds"].isin(promotion_windows), total_matches, 0
+    )
     pred = model.predict(future_df)
 
     history = pd.DataFrame({
@@ -158,6 +179,7 @@ def get_forecast_df(
         "forecast": None,
         "lower": None,
         "upper": None,
+        "promotion_indicator": prophet_df["promotion_indicator"]
     })
 
     forecast = pd.DataFrame({
@@ -166,11 +188,45 @@ def get_forecast_df(
         "forecast": pred["yhat"],
         "lower": pred["yhat_lower"],
         "upper": pred["yhat_upper"],
+        "promotion_indicator": future_df["promotion_indicator"]
     })
 
     final_df = pd.concat([history, forecast], ignore_index=True)
+    print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+    for date in list(promotion_windows):
+        print(date)
+    print(final_df.tail())
+    print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 
     return final_df
+
+
+def plot_forecast_with_promos(df: pd.DataFrame, start_date: pd.Timestamp):
+    df = df[start_date <= df["date"]]
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    ax.plot(df['date'], df['actual'], color='black', label='Actual Sales')
+    ax.plot(df['date'], df['forecast'], color='#0072B2', label='Forecast')
+    ax.fill_between(df['date'], df['lower'], df['upper'],
+                    color='#0072B2', alpha=0.2)
+
+    promo_dates = df[df['promotion_indicator'] != 0]['date']
+
+    # Create a dummy handle for the legend
+    from matplotlib.patches import Patch
+    promo_patch = Patch(color='red', alpha=0.1, label='Promotion Period')
+
+    for date in promo_dates:
+        # Shade the background for that specific week
+        ax.axvspan(date, date + pd.Timedelta(weeks=1), color='red', alpha=0.1)
+
+    # 3. Add legend including the custom patch
+    handles, labels = ax.get_legend_handles_labels()
+    handles.append(promo_patch)
+    ax.legend(handles=handles)
+
+    return fig
 
 
 def get_pred_obs_df(

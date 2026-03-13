@@ -18,39 +18,8 @@ from utils.widget_helpers import (
 )
 
 
-# NOTE: Widget render function
-def renderWidget(widget: dict[str, Any]):
+def match_and_render(widget):
     display_type = widget["DISPLAY_TYPE"]
-    widget_idx = widget["WIDGET_INDEX"]
-    widget_title = widget["WIDGET_TITLE"]
-
-    widget["FILTERS"] = (
-        {key: "----- SELECT -----" for key in FILTER_LIST}
-        if not widget["FILTERS"]
-        else widget["FILTERS"]
-    )
-
-    # NOTE: REVAMPED RENDER WIGET
-    title_container = st.empty()
-    title_container.title(f"{widget_title}")
-
-    col = st.columns(2)
-    with col[0].popover("Change Title"):
-        new_title = st.text_input("New Title", widget["WIDGET_TITLE"])
-        widget["WIDGET_TITLE"] = new_title
-        title_container.title(new_title)
-
-    with col[1].popover("Select Product"):
-        # Insert Option Code HERE
-        widgetOptionFilter(widget)
-
-        # Insert Date Code HERE
-        widgetOptionDate(widget)
-
-        if st.button("Clear Option", key=f"{widget_idx}_clear_btn"):
-            widgetOptionFilter(widget, toClear=True)
-            widgetOptionDate(widget, toClear=True)
-
     match display_type:
         case "KPI":
             createKPI(widget)
@@ -70,6 +39,50 @@ def renderWidget(widget: dict[str, Any]):
         case _:
             st.success(f"widget display for {display_type}")
             pass
+
+# NOTE: Widget render function
+
+
+@st.fragment
+def renderWidget(widget: dict[str, Any]):
+    display_type = widget["DISPLAY_TYPE"]
+    widget_idx = widget["WIDGET_INDEX"]
+    widget_title = widget["WIDGET_TITLE"]
+
+    widget["FILTERS"] = (
+        {key: "----- SELECT -----" for key in FILTER_LIST}
+        if not widget["FILTERS"]
+        else widget["FILTERS"]
+    )
+
+    # NOTE: REVAMPED RENDER WIGET
+    title_container = st.empty()
+    title_container.title(f"{widget_title}")
+
+    col = st.columns(2)
+    widget_display_slot = st.empty()
+    with col[0].popover("Change Title"):
+        new_title = st.text_input("New Title", widget["WIDGET_TITLE"])
+        widget["WIDGET_TITLE"] = new_title
+        title_container.title(new_title)
+
+    with col[1].popover("Select Product"):
+        # Insert Option Code HERE
+        widgetOptionFilter(widget)
+
+        # Insert Date Code HERE
+        widgetOptionDate(widget)
+
+        cols = st.columns(2)
+        if cols[0].button("Clear Option", key=f"{widget_idx}_clear_btn"):
+            widgetOptionFilter(widget, toClear=True)
+            widgetOptionDate(widget, toClear=True)
+
+        if cols[1].button("Confirm Config", key=f"{widget_idx}_confirm_config_btn"):
+            st.toast("Configuration Confirmed!")
+
+    with widget_display_slot.container():
+        match_and_render(widget)
 
     # NOTE:--------New Widget Render END-------------
 

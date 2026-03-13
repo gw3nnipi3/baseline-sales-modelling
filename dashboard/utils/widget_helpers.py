@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import timedelta
 import pandas as pd
 from typing import Any
 from utils.data_tools import (
@@ -7,6 +8,7 @@ from utils.data_tools import (
     get_valid_options,
     get_kpi_data,
     get_forecast_df,
+    plot_forecast_with_promos,
     get_pred_obs_df,
     get_performance_metrics,
 )
@@ -14,6 +16,7 @@ from utils.global_const import FILTER_LIST
 from prophet.plot import plot_cross_validation_metric
 
 
+@st.fragment
 def widgetOptionFilter(widget: dict[str, Any], toClear: bool = False):
     if toClear:
         print("~~~~~~~~~~~ TO CLEAR OPTION ~~~~~~~~~~~")
@@ -86,6 +89,7 @@ def widgetOptionFilter(widget: dict[str, Any], toClear: bool = False):
         st.write("Select Filter Type to Continue")
 
 
+@st.fragment
 def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
     widget_idx = widget["WIDGET_INDEX"]
     data_source = widget["DATA_SOURCE"]
@@ -175,83 +179,176 @@ def createKPI(widget: dict[str, Any]):
     st.metric("Total Sales", value=value, delta=deltaPercent)
 
 
-def createForecast(widget: dict[str, Any]):
+def createForecastOption(
+        widget: dict[str, Any],
+        forecast_len: int,
+        time_period: str):
+    widget_idx = widget["WIDGET_INDEX"]
+    # forecast_len = int(widget["FORECAST_LENGTH"][:-1])
+    # time_period = "weeks"
+    # if widget["FORECAST_LENGTH"]:
+    #    match(widget["FORECAST_LENGTH"][-1]):
+    #        case "W":
+    #            time_period = "weeks"
+    #        case "M":
+    #            time_period = "months (4 weeks)"
+    #        case "Y":
+    #            time_period = "years (52 weeks)"
+
+    # NOTE: get existing widget value
+    #
+    # forecast_len = (
+    #     int(widget["FORECAST_LENGTH"][:-1])
+    #     if widget.get("FORECAST_LENGTH", None) else 3  # default value
+    # )
+    # time_period = "months (4 weeks)"  # default value
+    # if widget["FORECAST_LENGTH"]:
+    #     match(widget["FORECAST_LENGTH"][-1]):
+    #         case "W":
+    #             time_period = "weeks"
+    #         case "M":
+    #             time_period = "months (4 weeks)"
+    #         case "Y":
+    #             time_period = "years (52 weeks)"
+
+    # NOTE: real render
+    cols = st.columns(2)
+    forecast_len = cols[0].number_input(
+        "Forecast Window:",
+        value=forecast_len,
+        min_value=1,
+        max_value=1000,
+        key=f"{widget_idx}_forecast_window_input"
+    )
+
+    period_options = ["weeks", "months (4 weeks)", "years (52 weeks)"]
+    time_period = cols[1].selectbox(
+        "Time Period:",
+        options=period_options,
+        key=f"{widget_idx}_time_period",
+        index=period_options.index(time_period)
+    )
+
+    match(time_period):
+        case "weeks":
+            widget["FORECAST_LENGTH"] = str(forecast_len)+"W"
+        case "months (4 weeks)":
+            widget["FORECAST_LENGTH"] = str(forecast_len)+"M"
+        case "years (52 weeks)":
+            widget["FORECAST_LENGTH"] = str(forecast_len)+"Y"
+
+
+def createPromotionOption(
+        widget: dict[str, Any],
+        start_forecast_date: pd.Timestamp,
+        end_forecast_date: pd.Timestamp):
     widget_idx = widget["WIDGET_INDEX"]
 
-    st.write("### Forecast")
-    chart_box = st.empty()
+    # # NOTE: Prepare existing value
 
-    forecast_len = (
-        int(widget["FORECAST_LENGTH"][:-1])
-        if widget["FORECAST_LENGTH"] else 1
+    # forecast_len = (
+    #     int(widget["FORECAST_LENGTH"][:-1])
+    #     if widget["FORECAST_LENGTH"] else 4  # default value
+    # )
+    # time_period = "months (4 weeks)"  # default value
+    # if widget.get("FORECAST_LENGTH", None):
+    #     match(widget["FORECAST_LENGTH"][-1]):
+    #         case "W":
+    #             time_period = "weeks"
+    #         case "M":
+    #             time_period = "months (4 weeks)"
+    #         case "Y":
+    #             time_period = "years (52 weeks)"
+    # window_set = set()
+    # if widget["PROMOTION_WINDOWS"]:
+    #     window_set = widget["PROMOTION_WINDOWS"]
+
+    # NOTE: real render
+    window_set = widget["PROMOTION_WINDOWS"]
+
+    # NOTE: for the promotion
+    cols = st.columns(2)
+    promo_start_date = cols[0].slider(
+        "Promotion Start Date:",
+        min_value=start_forecast_date.to_pydatetime(),
+        max_value=end_forecast_date.to_pydatetime(),
+        step=timedelta(weeks=1),
+        key=f"{widget_idx}_promo_start_date"
     )
-    time_period = "weeks"
-    if widget["FORECAST_LENGTH"]:
+
+    promo_length = cols[1].number_input(
+        "Promotion Length (weeks):",
+        value=0,
+        min_value=0,
+        max_value=1000,
+        key=f"{widget_idx}_promo_len_input"
+    )
+
+    cols = st.columns(2)
+    if cols[0].button("Add Promotion", key=f"{widget_idx}_add_promo_btn"):
+        promo_date_list = pd.date_range(
+            start=promo_start_date, periods=promo_length, freq="W-MON"
+        ).to_list()
+        window_set.update(promo_date_list)
+        widget["PROMOTION_WINDOWS"] = window_set
+        # st.write(promo_start_date)
+        st.write(date for date in promo_date_list)
+        # st.write(date for date in widget["PROMOTION_WINDOWS"])
+
+
+@st.fragment
+def createForecast(widget: dict[str, Any]):
+    # NOTE: prepare existing value
+    forecast_length = 3
+    time_delta = pd.Timedelta(forecast_length*4, "W")  # default value
+    time_period = "months (4 weeks)"
+
+    if not widget.get("FORECAST_LENGTH", None):
+        forecast_length = int(widget["FORECAST_LENGTH"][:-1])
         match(widget["FORECAST_LENGTH"][-1]):
             case "W":
+                time_delta = pd.Timedelta(forecast_length*1, "W")
                 time_period = "weeks"
             case "M":
+                time_delta = pd.Timedelta(forecast_length*4, "W")
                 time_period = "months (4 weeks)"
             case "Y":
+                time_delta = pd.Timedelta(forecast_length*52, "W")
                 time_period = "years (52 weeks)"
+    else:
+        widget["FORECAST_LENGTH"] = "3M"
 
-    with st.popover("Configure Forecast"):
-        with st.form(f"{widget_idx}_forecast_config"):
-            cols = st.columns(2)
-            forecast_len = cols[0].number_input(
-                "Forecast Window:",
-                value=forecast_len,
-                min_value=1,
-                max_value=1000,
-                key=f"{widget_idx}_forecast_window_input"
-            )
+    if not widget.get("PROMOTION_WINDOWS", None):
+        widget["PROMOTION_WINDOWS"] = set()
 
-            period_options = ["weeks", "months (4 weeks)", "years (52 weeks)"]
-            time_period = cols[1].selectbox(
-                "Time Period:",
-                options=period_options,
-                key=f"{widget_idx}_time_period",
-                index=period_options.index(time_period)
-            )
+    start_forecast_date = (pd.to_datetime(widget["END_DATE"]) +
+                           pd.Timedelta(1, "W"))
+    end_forecast_date = start_forecast_date + time_delta
 
-            start_forecast_date = pd.to_datetime(widget["END_DATE"])
-            time_delta = pd.Timedelta(1, "W")
-            match(time_period):
-                case "weeks":
-                    time_delta = pd.Timedelta(forecast_len, "W")
-                case "months (4 weeks)":
-                    time_delta = pd.Timedelta(4 * forecast_len, "W")
-                case "years (52 weeks)":
-                    time_delta = pd.Timedelta(52 * forecast_len, "W")
+    # NOTE: real render
+    st.write("### Forecast")
+    chart_box = st.empty()
+    cols = st.columns(3)
+    with cols[0].popover("Forecast Config"):
+        createForecastOption(widget, forecast_length, time_period)
 
-            end_forecast_date = start_forecast_date + time_delta
+    with cols[1].popover("Promotion Config"):
+        createPromotionOption(
+            widget, start_forecast_date, end_forecast_date)
+    # st.write("this is promotion window")
+    # st.write(data for data in widget["PROMOTION_WINDOWS"])
+    # st.write("promotion window end")
 
-            # cols = st.columns(2)
-            # promo_start_date = cols[0].
-
-            # promo_length = cols[1].number_input(
-            #     "Promotion Length (weeks):",
-            #     value=3,
-            #     min_value=1,
-            #     max_value=1000,
-            #     key=f"{widget_idx}_promo_len_input"
-            # )
-
-            st.form_submit_button(
-                'Save Config',
-                key=f"{widget_idx}_submit_forecast_config_btn"
-            )
+    # if cols[2].button("Confirm Config"):
 
     forecast_df = get_forecast_df(
         widget["DATA_SOURCE"],
         widget["FILTERS"],
-        end_forecast_date
+        end_forecast_date,
+        widget["PROMOTION_WINDOWS"]
     )
-    chart_data = forecast_df.set_index("date")
-    # st.write(start_forecast_date)
-    # st.write(end_forecast_date)
-    chart_box.line_chart(chart_data[["actual", "forecast", "lower", "upper"]])
-    print(forecast_df.tail())
+    chart_box.pyplot(plot_forecast_with_promos(
+        forecast_df, widget["START_DATE"]))
 
 
 def createPredObs(widget: dict[str, Any]):
