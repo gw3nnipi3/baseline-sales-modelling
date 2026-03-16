@@ -1,0 +1,21 @@
+[1mdiff --git a/dashboard/app.py b/dashboard/app.py[m
+[1mindex 5c9cc83..c692cd1 100644[m
+[1m--- a/dashboard/app.py[m
+[1m+++ b/dashboard/app.py[m
+[36m@@ -31,6 +31,7 @@[m [mproduct_options = list(df["product_sku_code"].unique())[m
+ product_options.insert(0, "All Products")[m
+ selected_product = st.sidebar.selectbox("Select Product", product_options)[m
+ [m
+[32m+[m
+ @st.cache_data[m
+ def get_baseline_for_product(df, selected_product):[m
+     baseline_series = pd.Series(dtype=float)[m
+[36m@@ -258,7 +259,7 @@[m [melif page == "Cannibalisation":[m
+ [m
+ elif page == "Upload Data":[m
+     st.header("Upload New Data")[m
+[31m-    uploaded_file = st.file_uploader("Upload new Excel file", type=["xlsx"])[m
+[32m+[m[32m    uploaded_file = st.file_uploader("Upload new Excel file", type=["csv", "xlsx"])[m
+     if uploaded_file is not None:[m
+         saved_path = save_uploaded_file(uploaded_file)[m
+         st.success(f"Saved to {saved_path}")[m
