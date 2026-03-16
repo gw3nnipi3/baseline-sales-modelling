@@ -11,7 +11,7 @@ def run_prophet_model(df: pd.DataFrame):
         yearly_seasonality=True,
         weekly_seasonality=False,
         daily_seasonality=False,
-        # seasonality_mode="multiplicative"
+        seasonality_mode="multiplicative"
     )
 
     model.add_regressor("promotion_indicator")

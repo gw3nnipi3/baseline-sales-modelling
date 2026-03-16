@@ -359,8 +359,8 @@ def createDecomposition(widget: dict[str, Any]):
     st.write("#### Seasonal Sales")
     seasonal_data = pd.DataFrame({
         "date": forecast["ds"],
-        "baseline": forecast["yhat"] - forecast["extra_regressors_additive"],
-        # "baseline": forecast["trend"] * forecast["multiplicative_terms"],
+        # "baseline": forecast["yhat"] - forecast["extra_regressors_additive"],
+        "baseline": forecast["trend"] * forecast["multiplicative_terms"],
     })
     seasonal_data = seasonal_data.set_index("date")
     st.line_chart(seasonal_data)
@@ -368,8 +368,8 @@ def createDecomposition(widget: dict[str, Any]):
     st.write("#### Promotion Uplift")
     promotion_data = pd.DataFrame({
         "date": forecast["ds"],
-        "uplift": forecast["extra_regressors_additive"],
-        # "uplift": forecast["trend"]*forecast["extra_regressors_multiplicative"],
+        # "uplift": forecast["extra_regressors_additive"],
+        "uplift": forecast["trend"]*forecast["extra_regressors_multiplicative"],
     })
     promotion_data = promotion_data.set_index("date")
     st.line_chart(promotion_data)
@@ -384,7 +384,7 @@ def createDecomposition(widget: dict[str, Any]):
 
     residual_data = pd.DataFrame({
         "date": forecast["ds"],
-        "residual": observed["nielsen_total_volume"] - forecast["yhat"],
+        "residual":  forecast["yhat"] - observed["nielsen_total_volume"],
     })
     residual_data = residual_data.set_index("date")
     st.line_chart(residual_data)
