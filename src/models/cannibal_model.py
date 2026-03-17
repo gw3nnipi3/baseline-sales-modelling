@@ -1,12 +1,16 @@
 import lightgbm as lgb
 import pandas as pd
 import streamlit as st
+from utils.global_const import MATCH_CAT
 
 
 @st.cache_resource
 def run_cannibal_model(processed_df: pd.DataFrame):
-    features = [col for col in processed_df.columns]
-    features.remove("residual")
+    features = []
+    for match in MATCH_CAT:
+        features.append(f"{match}_other_share_delta_lag")
+        features.append(f"{match}_other_share_delta_pred")
+    features.append("promotion_indicator")
 
     target = "residual"
 
@@ -27,8 +31,8 @@ def run_cannibal_model(processed_df: pd.DataFrame):
         "objective": "regression",
         "metric": "rmse",
         "learning_rate": 0.01,
-        "max_depth": 7,         # Keep shallow to prevent overfitting
-        "num_leaves": 120,
+        "max_depth": 4,         # Keep shallow to prevent overfitting
+        # "num_leaves": 70,
         "min_data_in_leaf": 10,
         "feature_fraction": 0.8,  # Randomly select 80% of features per tree to find weak signals
         "verbose": -1
@@ -37,7 +41,7 @@ def run_cannibal_model(processed_df: pd.DataFrame):
     model = lgb.train(
         params,
         train_data,
-        num_boost_round=3000,
+        num_boost_round=1000,
         valid_sets=[train_data, test_data],
         callbacks=[lgb.early_stopping(stopping_rounds=50)]
     )

@@ -1,20 +1,25 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from prophet.diagnostics import cross_validation
 from src.models.prophet_model import run_prophet_model
 from src.models.cannibal_model import run_cannibal_model
-from prophet.diagnostics import cross_validation, performance_metrics
 from utils.global_const import (
+    PLACHOLDER_STR,
     FILTER_LIST,
-    FLAVOR_MAPPING,
-    BRAND_MAPPING,
     MATCH_CAT,
 )
+
+from utils.data_helper import (
+    add_categories,
+    process_categories,
+)
+
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 @st.cache_data
@@ -76,20 +81,20 @@ def get_valid_options(
     df = load_data(filename)
 
     for key in FILTER_LIST:
-        if filters[key] != "----- SELECT -----":
+        if filters[key] != PLACHOLDER_STR:
             df = df[df[key].astype(str) == filters[key]]
 
-    # print("------PROCESS DATA-----")
+    # print("------GET VALID OPTIONS-----")
     # print(filters)
 
     # print(df.tail())
-    # print("------PROCESS DATA-----")
+    # print("------GET VALID END-----")
 
     valid_options = dict()
     for key in filters:
         valid_options[key] = df[key].unique().astype(str).tolist()
         valid_options[key].sort()
-        valid_options[key] = ["----- SELECT -----"] + valid_options[key]
+        valid_options[key] = [PLACHOLDER_STR] + valid_options[key]
     return valid_options
 
 
@@ -97,7 +102,7 @@ def process_data(filename: str, filters: dict[str, str]):
     df = load_data(filename)
     # ---------- cumulate data ----------
     for key in FILTER_LIST:
-        if filters[key] == "----- SELECT -----":
+        if filters[key] == PLACHOLDER_STR:
             continue
 
         match_value = filters[key]
@@ -140,21 +145,6 @@ def get_kpi_data(
     return this_range, pct_change
 
 
-def get_total_matches(filename: str, filters: dict[str, str]):
-    df = load_data(filename)
-
-    for key in FILTER_LIST:
-        if filters[key] == "----- SELECT -----":
-            continue
-
-        match_value = filters[key]
-        if key == "product_sku_code":
-            match_value = int(match_value)
-        df = df[df[key] == match_value]
-
-    return len(df["product_sku_code"].unique())
-
-
 def process_forecast_length(forecast_len_str: str) -> (int, str, pd.Timedelta):
     forecast_length = int(forecast_len_str[:-1])
     match(forecast_len_str[-1]):
@@ -168,6 +158,21 @@ def process_forecast_length(forecast_len_str: str) -> (int, str, pd.Timedelta):
             time_delta = pd.Timedelta(forecast_length*52, "W")
             time_period = "years (52 weeks)"
     return forecast_length, time_period, time_delta
+
+
+def get_total_matches(filename: str, filters: dict[str, str]):
+    df = load_data(filename)
+
+    for key in FILTER_LIST:
+        if filters[key] == PLACHOLDER_STR:
+            continue
+
+        match_value = filters[key]
+        if key == "product_sku_code":
+            match_value = int(match_value)
+        df = df[df[key] == match_value]
+
+    return len(df["product_sku_code"].unique())
 
 
 def get_forecast_df(
@@ -253,18 +258,32 @@ def plot_forecast_with_promos(df: pd.DataFrame, start_date: pd.Timestamp):
 
 
 def get_pred_obs_df(
-    filename: str, filters: dict[str, str], start_date: str, end_date: str
+    filename: str,
+    filters: dict[str, str],
+    start_date: str,
+    end_date: str,
+    enable_cannibal: bool,
 ):
     df = process_data(filename, filters)
     model, prophet_df = run_prophet_model(df)
     forecast = model.predict(prophet_df)
     forecast = forecast.reset_index()
 
+    # NOTE: Cannabalisation model
+    sku = filters["product_sku_code"]
+    residuals = 0
+    if sku != PLACHOLDER_STR and enable_cannibal:
+        residuals = get_cannibalisation_model(
+            int(sku), filename, load_data(filename))
+
     sd = pd.to_datetime(start_date)
     ed = pd.to_datetime(end_date)
-    print("-------------------- FORECAST --------------------")
+    print("-------------------- PRED VS OBS --------------------")
     print(forecast.tail())
-    print("-------------------- FORECAST --------------------")
+    print(residuals)
+    print("-------------------- PRED VS OBS --------------------")
+
+    forecast['yhat'] = forecast['yhat'] + residuals
     forecast = forecast[forecast["ds"].between(sd, ed)]
     # forecast['yhat'] = total prediction
     # forecast['yhat'] - forecast['extra_regressors_additive'] = seasonality
@@ -291,116 +310,26 @@ def get_performance_metrics(
     return df_cv
 
 
-def classify_size(size_str):
-    size = int("".join(filter(str.isdigit, size_str)))
-
-    if size <= 375:
-        return "S"
-    elif size <= 850:
-        return "M"
-    elif size <= 1500:
-        return "L"
-    else:
-        return "XL"
-
-
-def classify_unit(unit_str):
-    unit = int("".join(filter(str.isdigit, unit_str)))
-
-    if unit <= 1:
-        return "S"
-    elif unit <= 9:
-        return "M"
-    elif unit <= 18:
-        return "L"
-    else:
-        return "XL"
-
-
-def classify_flavor(flavor_str):
-    return FLAVOR_MAPPING.get(flavor_str, "Misc")
-
-
-def classify_brand(brand_str):
-    return BRAND_MAPPING.get(brand_str, "Misc")
-
-
-@st.cache_data
-def add_categories(df):
-    df["brand_cat"] = df["top_brand"].apply(classify_brand)
-    df["flavor_cat"] = df["flavor_internal"].apply(classify_flavor)
-    df["size_cat"] = df["pack_size_internal"].apply(classify_size)
-    df["unit_cat"] = df["units_per_package_internal"].apply(classify_unit)
-
-    df.drop(columns=["top_brand",
-                     "flavor_internal",
-                     "pack_size_internal",
-                     "units_per_package_internal"])
-    return df
-
-
-@st.cache_data
-def process_categories(sku: int, df: pd.DataFrame):
-
-    sku_row = df[df["product_sku_code"] == sku].iloc[0]
-
-    results = {}
-
-    sku_df = df[(df["product_sku_code"] == sku)].groupby(
-        "date", as_index=False).sum()
-    sku_model, sku_prophet_df = run_prophet_model(sku_df)
-    pred_sku = sku_model.predict(sku_prophet_df)
-    pred_sku.index = pd.to_datetime(sku_prophet_df['ds'])
-
-    actual_volume = sku_df.set_index("date")["nielsen_total_volume"]
-    results["residual"] = pred_sku["yhat"] - actual_volume
-
-    results["promotion_indicator"] = sku_df["promotion_indicator"]
-
-    for name, cols in MATCH_CAT.items():
-
-        mask = pd.Series(True, index=df.index)
-        for col in cols:
-            mask &= (df[col] == sku_row[col])
-
-        cat_weekly = df[mask].groupby("date")["nielsen_total_volume"].sum()
-        others_weekly = (
-            df[mask & (df["product_sku_code"] != sku)].
-            groupby("date")["nielsen_total_volume"].sum()
-        )
-        current_share = (others_weekly / cat_weekly).fillna(0)
-        # results[f"{name}_other_share_lag"] = current_share.shift(1)
-        results[f"{name}_other_share_delta_lag"] = current_share.shift(
-            1) - current_share.shift(2)
-
-        group_df = df[mask].groupby("date", as_index=False).sum()
-        group_model, group_prophet_df = run_prophet_model(group_df)
-        pred_cat = group_model.predict(group_prophet_df)
-
-        pred_cat.index = pd.to_datetime(group_prophet_df['ds'])
-
-        pred_weekly = pred_cat["yhat"]
-        pred_others_weekly = pred_cat["yhat"] - pred_sku["yhat"]
-        pred_share = (pred_others_weekly / pred_weekly).fillna(0)
-
-        # results[f"{name}_other_share_pred"] = pred_share
-        results[f"{name}_other_share_delta_pred"] = pred_share - \
-            pred_share.shift(1)
-
-    return pd.DataFrame(results)
-
-
 @st.cache_data
 def get_cannibalisation_model(sku: int,
-                              df: pd.DataFrame,
+                              filename: str,
                               target_df: pd.DataFrame):
-    df = add_categories(df)
-    processed_df = process_categories(sku, df)
-
+    raw_df = load_data(filename)
+    raw_df = add_categories(raw_df)
+    processed_df = process_categories(sku, raw_df)
     model = run_cannibal_model(processed_df)
 
     target_df = add_categories(target_df)
     processed_target = process_categories(sku, target_df)
 
-    residuals = model.predict(processed_target)
+    print("-------------------- Bro pls 2------------------")
+    print(processed_target.tail())
+    print("-------------------- CANNIBAL --------------------")
+
+    features = []
+    for match in MATCH_CAT:
+        features.append(f"{match}_other_share_delta_lag")
+        features.append(f"{match}_other_share_delta_pred")
+    features.append("promotion_indicator")
+    residuals = model.predict(processed_target[features])
     return residuals

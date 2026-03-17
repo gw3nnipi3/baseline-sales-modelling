@@ -9,6 +9,7 @@ WIDGET_SETTING = [
     "END_DATE",
     "FORECAST_LENGTH",  # only for forecast e.g."1Y" = 1 yr "1W" = 1 wk "1M" = 1 month
     "PROMOTION_WINDOWS",  # only for forecast this is a set data type
+    "ENABLE_CANNIBAL",
 ]
 
 WIDGET_DISPLAY_TYPE = ["KPI",
@@ -18,6 +19,8 @@ WIDGET_DISPLAY_TYPE = ["KPI",
                        "Backtest Performance"]
 
 WIDGET_COLUMN_COUNT = 2
+
+PLACHOLDER_STR = "----- SELECT -----"
 
 FILTER_LIST = [
     "product_sku_code",
@@ -155,5 +158,9 @@ MATCH_CAT = {
     "bfu": {"brand_cat", "flavor_cat", "unit_cat"},
     "bus": {"brand_cat", "unit_cat", "size_cat"},
     "fus": {"flavor_cat", "unit_cat", "size_cat"},
-    "bfus": {"brand_cat", "flavor_cat", "unit_cat", "size_cat"}
+    # "bfus": {"brand_cat", "flavor_cat", "unit_cat", "size_cat"},
+    "b": {"brand_cat"},
+    "f": {"flavor_cat"},
+    "u": {"unit_cat"},
+    "s": {"size_cat"},
 }

@@ -17,7 +17,7 @@ from utils.data_tools import (
     get_pred_obs_df,
     get_performance_metrics,
 )
-from utils.global_const import FILTER_LIST
+from utils.global_const import FILTER_LIST, PLACHOLDER_STR
 from prophet.plot import plot_cross_validation_metric
 
 
@@ -28,7 +28,7 @@ def widgetOptionFilter(widget: dict[str, Any], toClear: bool = False):
         print("~~~~~~~~~~~ TO CLEAR OPTION ~~~~~~~~~~~")
         print("~~~~~~~~~~~ TO CLEAR OPTION ~~~~~~~~~~~")
         for key in FILTER_LIST:
-            widget["FILTERS"][key] = "----- SELECT -----"
+            widget["FILTERS"][key] = PLACHOLDER_STR
         return
 
     data_source = widget["DATA_SOURCE"]
@@ -172,6 +172,32 @@ def widgetOptionDate(widget: dict[str, Any], toClear: bool = False):
     # print("--------------OPTION DATE--------------")
 
 
+@st.fragment
+def widgetCannibalOption(widget: dict[str, Any], toClear: bool = False):
+    widget_idx = widget["WIDGET_INDEX"]
+
+    if toClear:
+        print("~~~~~~~~~~~ TO CLEAR DATE ~~~~~~~~~~~")
+        print("~~~~~~~~~~~ TO CLEAR DATE ~~~~~~~~~~~")
+        print("~~~~~~~~~~~ TO CLEAR DATE ~~~~~~~~~~~")
+        widget["ENABLE_CANNIBAL"] = False
+        return
+
+    widget["ENABLE_CANNIBAL"] = widget.get("ENABLE_CANNIBAL", False)
+    if (widget["FILTERS"]["product_sku_code"] == PLACHOLDER_STR and
+            widget["DISPLAY_TYPE"] == "Predicted Vs. Observed"):
+        st.warning(
+            "⚠️ **Cannabalism Effect Disabled:** Please select an SKU Code to enable.")
+    else:
+        c_tgl = st.toggle("Enable Canabalisation",
+                          key=f"{widget_idx}_c_tgl",
+                          value=widget["ENABLE_CANNIBAL"])
+        widget["ENABLE_CANNIBAL"] = c_tgl
+        st.warning(
+            "This feature is in **BETA** and may result in lower accuracy"
+        )
+
+
 def createKPI(widget: dict[str, Any]):
     value, delta = get_kpi_data(
         widget["DATA_SOURCE"],
@@ -304,6 +330,7 @@ def createPredObs(widget: dict[str, Any]):
         widget["FILTERS"],
         widget["START_DATE"],
         widget["END_DATE"],
+        widget["ENABLE_CANNIBAL"]
     )
 
     observed = process_data(widget["DATA_SOURCE"], widget["FILTERS"])
@@ -388,7 +415,7 @@ def createDecomposition(widget: dict[str, Any]):
 
     residual_data = pd.DataFrame({
         "date": forecast["ds"],
-        "residual":  forecast["yhat"] - observed["nielsen_total_volume"],
+        "residual":  observed["nielsen_total_volume"] - forecast["yhat"],
     })
     residual_data = residual_data.set_index("date")
     st.line_chart(residual_data)

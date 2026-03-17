@@ -11,11 +11,13 @@ from utils.global_const import (
     WIDGET_SETTING,
     WIDGET_DISPLAY_TYPE,
     WIDGET_COLUMN_COUNT,
+    PLACHOLDER_STR,
     FILTER_LIST,
 )
 from utils.widget_helpers import (
     widgetOptionFilter,
     widgetOptionDate,
+    widgetCannibalOption,
     createKPI,
     createForecast,
     createPredObs,
@@ -51,12 +53,11 @@ def match_and_render(widget):
 
 @st.fragment
 def renderWidget(widget: dict[str, Any]):
-    display_type = widget["DISPLAY_TYPE"]
     widget_idx = widget["WIDGET_INDEX"]
     widget_title = widget["WIDGET_TITLE"]
 
     widget["FILTERS"] = (
-        {key: "----- SELECT -----" for key in FILTER_LIST}
+        {key: PLACHOLDER_STR for key in FILTER_LIST}
         if not widget["FILTERS"]
         else widget["FILTERS"]
     )
@@ -64,9 +65,9 @@ def renderWidget(widget: dict[str, Any]):
     # NOTE: REVAMPED RENDER WIGET
     title_container = st.empty()
     title_container.title(f"{widget_title}")
-
     col = st.columns(2)
     widget_display_slot = st.empty()
+
     with col[0].popover("Change Title"):
         new_title = st.text_input("New Title", widget["WIDGET_TITLE"])
         widget["WIDGET_TITLE"] = new_title
@@ -79,10 +80,13 @@ def renderWidget(widget: dict[str, Any]):
         # Insert Date Code HERE
         widgetOptionDate(widget)
 
+        widgetCannibalOption(widget)
+
         cols = st.columns(2)
         if cols[0].button("Clear Option", key=f"{widget_idx}_clear_btn"):
             widgetOptionFilter(widget, toClear=True)
             widgetOptionDate(widget, toClear=True)
+            widgetCannibalOption(widget, toClear=True)
 
         if cols[1].button("Confirm Config", key=f"{widget_idx}_confirm_config_btn"):
             st.toast("Configuration Confirmed!")
@@ -90,6 +94,9 @@ def renderWidget(widget: dict[str, Any]):
     with widget_display_slot.container():
         match_and_render(widget)
 
+    if st.button("Delete Widget", key=f"{widget_idx}_delte_widget"):
+        st.session_state["widgets"].remove(widget)
+        st.rerun()
     # NOTE:--------New Widget Render END-------------
 
 
@@ -105,7 +112,7 @@ def renderAll():
             print("|||||||||| RENDER ALL ||||||||||")
 
 
-@st.fragment
+@ st.fragment
 def addWidget():
     with st.popover("+ Add Widget"):
         datasetPath = Path("data/")
@@ -209,4 +216,5 @@ def importLayout(csvLayout):
             widget_title=widget["WIDGET_TITLE"],
             widget=widget,
         )
-        st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
+    st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
+    st.session_state.widget_index = dfLayout["WIDGET_INDEX"].max()
