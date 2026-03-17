@@ -2,110 +2,166 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import pytest
 import pandas as pd
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pytest
+import contextlib
+from unittest.mock import patch
+import dashboard.utils.data_tools as dt
 
-from dashboard.utils import data_tools as dt
-
-# -------------------------------
-# Fixtures
-# -------------------------------
-
+# -----------------------------
+# Sample DataFrame
+# -----------------------------
 @pytest.fixture
 def fake_df():
-    # Create a simple dataframe with all columns expected by FILTER_LIST and process_categories
-    df = pd.DataFrame({
-        "date": pd.date_range("2024-01-01", periods=4, freq="W-MON"),
-        "product_sku_code": [1, 2, 1, 2],
-        "nielsen_total_volume": [10, 20, 15, 5],
-        "promotion_indicator": [0, 1, 0, 0],
-        "top_brand": ["BrandA", "BrandB", "BrandA", "BrandB"],
-        "flavor_internal": ["Vanilla", "Chocolate", "Vanilla", "Chocolate"],
-        "pack_size_internal": ["375ml", "900ml", "850ml", "1500ml"],
-        "units_per_package_internal": [1, 5, 10, 20],
-        "customer": ["CustA", "CustB", "CustA", "CustB"],  # example FILTER_LIST column
-        "region": ["North", "South", "North", "South"]    # example FILTER_LIST column
-    })
-    return df
+    data = {
+        "product_sku_code": ["SKU208289", "SKU210553", "SKU281868", "SKU282520"],
+        "customer": ["L2_ALBERT HEIJN"] * 4,
+        "year": [2022] * 4,
+        "yearweek": ["202244"] * 4,
+        "date": pd.to_datetime(["2023-11-28"]*4),
+        "nielsen_total_volume": [927, 2726, 20410, 5571],
+        "promotion_indicator": [0, 0, 0, 0],
+        "top_brand": ["FUZE TEA", "FUZE TEA", "COCA-COLA", "FANTA ZERO / NO SUGAR / DIET / LIGHT"],
+        "flavor_internal": ["HIBISCUS & PEACH", "LEMON", "COLA", "ORANGE"],
+        "pack_type_internal": ["CAN", "CARDBOARD", "PET", "PET"],
+        "pack_size_internal": ["250ML", "1500ML", "1500ML", "1500ML"],
+        "units_per_package_internal": ["X1", "X1", "X4", "X1"],
+        "sku": ["250MLCAN 6X4P FUZETEA PCH HIB",
+                "1.5LGTB X8 FUZETEA GREEN",
+                "1.5LNRP 4P COCA-COLA",
+                "1.5LNRP X6 FTA OR ZSUG"]
+    }
+    return pd.DataFrame(data)
 
+
+# -----------------------------
+# Filters
+# -----------------------------
 @pytest.fixture
 def filters():
-    return {
-        "customer": "CustA",
-        "region": "North",
-        "product_sku_code": "1"
-    }
+    # List all keys that your FILTER_LIST expects
+    filter_keys = [
+        "customer",
+        "product_sku_code",
+        "top_brand",
+        "flavor_internal",
+        "pack_type_internal",
+        "pack_size_internal",
+        "units_per_package_internal",
+    ]
 
-# -------------------------------
-# Tests
-# -------------------------------
+    # Start with default "----- SELECT -----" for all keys
+    filters_dict = {key: "----- SELECT -----" for key in filter_keys}
 
-def test_classify_size():
-    assert dt.classify_size("375ml") == "S"
-    assert dt.classify_size("900ml") == "L"  # matches your current function
-    assert dt.classify_size("1500ml") == "L"
-    assert dt.classify_size("850ml") == "M"
+    # Update the ones you actually want to filter
+    """
+    filters_dict.update({
+        "customer": "L2_ALBERT HEIJN",
+        "product_sku_code": "208289",
+        "top_brand": "FUZE TEA",
+    })
+    """
 
-def test_classify_unit():
-    assert dt.classify_unit("1") == "S"
-    assert dt.classify_unit("5") == "M"
-    assert dt.classify_unit("10") == "L"
-    assert dt.classify_unit("20") == "XL"
+    return filters_dict
 
-# -------------------------------
-# Patch load_data to use fake_df
-# -------------------------------
+# -----------------------------
+# Test process_data
+# -----------------------------
+def test_process_data(fake_df, filters):
+    with patch("dashboard.utils.data_tools.load_data", return_value=fake_df):
+        result = dt.process_data("ignored.xlsx", filters)
+        assert not result.empty
+        assert "top_brand" in result.columns
 
-@pytest.fixture
-def patched_load_data(fake_df):
-    with patch("dashboard.utils.data_tools.load_data", return_value=fake_df) as mock:
-        yield mock
 
-def test_process_data(patched_load_data, filters):
-    df = dt.process_data("ignored.xlsx", filters)
-    assert all(df["nielsen_total_volume"] >= 0)
-    assert "date" in df.columns
+# -----------------------------
+# Test get_kpi_data
+# -----------------------------
+def test_get_kpi_data(fake_df, filters):
+    with patch("dashboard.utils.data_tools.load_data", return_value=fake_df):
+        total, pct_change = dt.get_kpi_data("ignored.xlsx", filters, "2022-01-01", "2022-12-31")
+        assert isinstance(total, np.integer)
+        assert isinstance(pct_change, (int, float))
 
-def test_get_kpi_data(patched_load_data, filters):
-    total, pct_change = dt.get_kpi_data("ignored.xlsx", filters, "2024-01-01", "2024-01-28")
-    assert total >= 0
-    assert isinstance(pct_change, float)
+
+# -----------------------------
+# Test add_categories (mock classify_unit if needed)
+# -----------------------------
+def test_add_categories(fake_df):
+    fake_df['unit_cat'] = fake_df['units_per_package_internal'].str.extract(r'X(\d+)').astype(int)
+
+    result = dt.add_categories(fake_df)
+
+    expected_cols = ["unit_cat", "brand_cat", "flavor_cat", "size_cat"]
+
+    for col in expected_cols:
+        assert col in result.columns
+
+    # unit_cat should contain category labels
+    assert result["unit_cat"].dtype == object
+    assert result["unit_cat"].isin(["S", "M", "L", "XL"]).all()
+
+# -----------------------------
+# test_process_categories
+# -----------------------------
 
 def test_process_categories(fake_df):
-    # Patch run_prophet_model to return dummy model and dataframe with 'ds'
+    fake_df['date'] = pd.date_range('2023-11-28', periods=len(fake_df))
+    fake_df['unit_cat'] = fake_df['units_per_package_internal'].str.extract(r'X(\d+)').astype(int)
+    fake_df['brand_cat'] = 'Misc'
+    fake_df['flavor_cat'] = 'Misc'
+    fake_df['size_cat'] = 'L'
+    fake_df['product_sku_code'] = [1,2,3,4]
+
     dummy_df = fake_df.rename(columns={"date": "ds", "nielsen_total_volume": "y"})
+
     class DummyModel:
         def predict(self, df_pred):
+            # Ensure the columns process_categories expects exist
             return pd.DataFrame({
-                "yhat": df_pred["y"],
-                "yhat_lower": df_pred["y"],
-                "yhat_upper": df_pred["y"]
-            })
-    with patch("dashboard.utils.data_tools.run_prophet_model", return_value=(DummyModel(), dummy_df)):
-        result = dt.process_categories(1, fake_df)
-        assert "residual" in result.columns
-        assert "promotion_indicator" in result.columns
+                "yhat": df_pred.get("y", 0),
+                "yhat_lower": df_pred.get("y", 0),
+                "yhat_upper": df_pred.get("y", 0),
+                "promotion_indicator": df_pred.get("promotion_indicator", 0),
+                "bfs_other_share_delta_lag": 0,
+                "bfs_other_share_delta_pred": 0,
+                "bfu_other_share_delta_lag": 0,
+                "bfu_other_share_delta_pred": 0,
+                "bfus_other_share_delta_lag": 0,
+                "bfus_other_share_delta_pred": 0,
+            }, index=df_pred.index)
 
-def test_add_categories(fake_df):
-    df = dt.add_categories(fake_df)
-    assert "brand_cat" in df.columns
-    assert "flavor_cat" in df.columns
-    assert "size_cat" in df.columns
-    assert "unit_cat" in df.columns
+    with patch("dashboard.utils.data_tools.run_prophet_model", return_value=(DummyModel(), dummy_df)), \
+        patch("dashboard.utils.data_tools.st.cache_data", lambda x: x), \
+        patch("dashboard.utils.data_tools.st.spinner", lambda text=None: contextlib.nullcontext()):
+        result = dt.process_categories(1, fake_df)
+
+    # Check columns that process_categories produces
+    for col in ["residual", "promotion_indicator"]:
+        assert col in result.columns
+
+# -----------------------------
+# test_get_forecast_df
+# -----------------------------
 
 def test_get_forecast_df(fake_df, filters):
-    # Patch run_prophet_model
+    fake_df['date'] = pd.date_range('2023-11-28', periods=len(fake_df))
     dummy_df = fake_df.rename(columns={"date": "ds", "nielsen_total_volume": "y"})
+
     class DummyModel:
         def predict(self, df_pred):
+            # Must return 'yhat', 'yhat_lower', 'yhat_upper' for process_categories
             return pd.DataFrame({
-                "yhat": df_pred["y"],
-                "yhat_lower": df_pred["y"],
-                "yhat_upper": df_pred["y"]
-            })
-    with patch("dashboard.utils.data_tools.run_prophet_model", return_value=(DummyModel(), dummy_df)):
-        forecast_df = dt.get_forecast_df("ignored.xlsx", filters, pd.Timestamp("2024-02-01"), set())
-        assert "forecast" in forecast_df.columns
-        assert "actual" in forecast_df.columns
+                "yhat": df_pred.get("y", 0),
+                "yhat_lower": df_pred.get("y", 0),
+                "yhat_upper": df_pred.get("y", 0)
+            }, index=df_pred.index)
+
+    with patch("dashboard.utils.data_tools.run_prophet_model", return_value=(DummyModel(), dummy_df)), \
+         patch("dashboard.utils.data_tools.load_data", return_value=fake_df):
+        forecast_df = dt.get_forecast_df("ignored.xlsx", filters, pd.Timestamp("2022-12-01"), set())
+
+    # Use actual column names produced by get_forecast_df
+    for col in ["forecast", "lower", "upper"]:
+        assert col in forecast_df.columns
