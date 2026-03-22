@@ -167,7 +167,7 @@ These metrics assess how closely predictions match actual sales.
 
 ## 10. Alternative Deployment
 
-This dashboard is also deployed using **Azure Virtual Machine**. It can be accessed [here]() 
+This dashboard is also deployed using **Azure Virtual Machine**. It can be accessed [here](http://20.90.13.83:8501) 
 
 ## 11. License & Notes
 
