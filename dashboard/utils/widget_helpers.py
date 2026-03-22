@@ -376,6 +376,7 @@ def createDecomposition(widget: dict[str, Any]):
         widget["FILTERS"],
         widget["START_DATE"],
         widget["END_DATE"],
+        widget["ENABLE_CANNIBAL"]
     )
 
     st.write("### Decomposition")

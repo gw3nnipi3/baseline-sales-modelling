@@ -1,7 +1,11 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import lightgbm as lgb
 import pandas as pd
 import streamlit as st
-from utils.global_const import MATCH_CAT
+from dashboard.utils.global_const import MATCH_CAT
 
 
 @st.cache_resource

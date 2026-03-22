@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import streamlit as st
 import pandas as pd
 from utils.ui_tools import (
@@ -6,10 +10,6 @@ from utils.ui_tools import (
     exportLayout,
     importLayout,
 )
-
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 st.set_page_config(
     page_title="Dashboard",
@@ -24,7 +24,7 @@ if "widget_index" not in st.session_state:
     st.session_state.widget_index = 0
 
 
-st.write("# Welcome to Dashboard!")
+st.write("# Coca-Cola Sales Dashboard")
 
 _ = st.sidebar.success("Select a demo above.")
 
