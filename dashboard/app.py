@@ -25,8 +25,11 @@ if "widget_index" not in st.session_state:
 
 
 st.write("# Coca-Cola Sales Dashboard")
-
-_ = st.sidebar.success("Select a demo above.")
+st.markdown(
+    "<p style='text-align: left; font-size: 18px; color: gray; margin-top:-10px;'>Customize your own dashboard by adding widgets!</p>", 
+    unsafe_allow_html=True
+)
+_ = st.sidebar.success("Add a widget to get started!")
 
 
 # NOTE: st.session_state.widget encoding
