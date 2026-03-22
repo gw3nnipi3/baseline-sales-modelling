@@ -1,0 +1,53 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import lightgbm as lgb
+import pandas as pd
+import streamlit as st
+from dashboard.utils.global_const import MATCH_CAT
+
+
+@st.cache_resource
+def run_cannibal_model(processed_df: pd.DataFrame):
+    features = []
+    for match in MATCH_CAT:
+        features.append(f"{match}_other_share_delta_lag")
+        features.append(f"{match}_other_share_delta_pred")
+    features.append("promotion_indicator")
+
+    target = "residual"
+
+    processed_df.index.name = "date"
+    processed_df = processed_df.reset_index()
+    split_date = processed_df["date"].max() - pd.Timedelta(weeks=16)
+
+    train = processed_df[processed_df["date"] < split_date]
+    test = processed_df[processed_df["date"] >= split_date]
+
+    X_train, X_test = train[features], test[features]
+    y_train, y_test = train[target], test[target]
+
+    train_data = lgb.Dataset(X_train, label=y_train)
+    test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+
+    params = {
+        "objective": "regression",
+        "metric": "rmse",
+        "learning_rate": 0.01,
+        "max_depth": 4,         # Keep shallow to prevent overfitting
+        # "num_leaves": 70,
+        "min_data_in_leaf": 10,
+        "feature_fraction": 0.8,  # Randomly select 80% of features per tree to find weak signals
+        "verbose": -1
+    }
+
+    model = lgb.train(
+        params,
+        train_data,
+        num_boost_round=1000,
+        valid_sets=[train_data, test_data],
+        callbacks=[lgb.early_stopping(stopping_rounds=50)]
+    )
+
+    return model

@@ -1,0 +1,21 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "./"
+      ]
+    }
+  ],
+  "reportImplicitRelativeImport": "none",
+  "typeCheckingMode": "basic"
+  "reportMissingTypeStubs": false,
+}

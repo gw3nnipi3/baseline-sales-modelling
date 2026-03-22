@@ -16,3 +16,5 @@ models/*.pkl
 
 # OS
 .DS_Store
+
+pyproject.toml
