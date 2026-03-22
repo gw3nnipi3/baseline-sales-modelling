@@ -1,66 +1,99 @@
 # Baseline Sales Modelling
 
-**Subtitle:** Estimating normal sales for Coca-Cola–style products
+**Estimating baseline (non-promoted) sales for fast-moving consumer goods (FMCGs) using time-series modelling**
 
 ---
 
 ## 1. Project Overview
 
-This project focuses on building a **data-driven demand model** to estimate **baseline (non-promoted) sales** for retail products.  
+This project develops a **data-driven demand model** to estimate **baseline (non-promoted) sales** for retail products.
+
 It is designed to:
 
-- Separate normal sales from promotional effects
-- Quantify incremental sales from promotions
+- Separate intrinsic demand from promotional uplift
+- Quantify true impact of promotions
 - Provide a business-ready, interpretable baseline for decision-making
 
-**Why this is interesting/challenging:**
+### Motivations
 
-- Retail data is often **sparse, noisy, and promotional-driven**
-- Accurate baseline estimation is **critical for marketing ROI**
-- Combining interpretable linear models with ML benchmarks (like XGBoost) allows **robust and explainable results**
+Retail sales data is often:
+
+- Noisy and highly volatile  
+- Strongly influenced by promotions  
+- Difficult to interpret without decomposition  
+
+Accurate baseline estimation is critical for:
+
+- Marketing ROI analysis  
+- Demand forecasting  
+- Strategic pricing decisions  
 
 ---
 
-## 2. Repository Structure
+## 2. Key Features
+
+- Baseline demand modelling using statistical and ML approaches  
+- Promotion impact analysis  
+- Modular backend for preprocessing and modelling  
+- Interactive dashboard built with Streamlit  
+- Clean separation between experimentation (notebooks) and production code  
+
+---
+
+## 3. System Architecture
+
+The system follows a modular pipeline:
+
+1. Raw data is ingested from `data/raw/`  
+2. Data is cleaned and preprocessed  
+3. Features are engineered (e.g. promotions, time-based signals)  
+4. Models are trained to estimate baseline sales  
+5. Predictions are generated  
+6. Results are visualised in an interactive dashboard  
+
+---
+
+
+## 4. Repository Structure
 
 ```
 
 baseline-sales-modelling/
 │
-├── README.md                    # Project overview & instructions
+├── README.md                    # Project documentation
 ├── requirements.txt             # Python dependencies
 ├── .gitignore                   # Ignore venv, raw data, outputs
 │
 ├── data/
-│   ├── raw/                     # Original raw CSVs (NOT committed)
+│   ├── raw/                     # Original raw datasets
 │   └── processed/               # Cleaned datasets ready for modeling
 │
 ├── notebooks/                   # Jupyter notebooks for exploration/experiments
 │
-├── src/                         # Reusable backend code
-│   ├── data/                    # Data loading / preprocessing
-│   ├── models/                  # Model code (linear regression, XGBoost)
-│   └── evaluation/              # Metrics and plotting
+├── src/                         # Core backend code
+│   ├── models/                  # Model implementation (Meta Prophet)
 │
-├── train.py                     # Central script to preprocess, train, and save models
-├── models/                      # Saved trained model files (.pkl)
+├── tests/                       # Unit testing
 ├── dashboard/                   # Frontend interactive dashboard (Streamlit)
+│   ├── utils/                   # Utility files with functions to run the model
 └── .venv/                       # Python virtual environment (NOT committed)
 
-````
+```
 
 ---
 
-## 3. Installation & Setup
+## 5. Installation & Setup
 
 ### 1️⃣ Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/baseline-sales-modelling.git
+git clone https://github.com/gw3nnipi3/baseline-sales-modelling.git
 cd baseline-sales-modelling
 ````
 
-### 2️⃣ Set up Python environment
+### 2️⃣ Create a virtual environment
+
+* On Windows:
 
 ```powershell
 python -m venv .venv           # create virtual environment
@@ -70,7 +103,7 @@ python -m venv .venv           # create virtual environment
 * On Mac/Linux:
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 ```
 
@@ -82,20 +115,9 @@ pip install -r requirements.txt
 
 ---
 
-## 4. How to Run
+## 6. How to Run
 
-### 1️⃣ Preprocess and Train
-
-```bash
-python src/train.py
-```
-
-* Preprocessing reads raw data from `data/raw/`
-* Saves cleaned data to `data/processed/`
-* Trains **baseline linear regression model**
-* Saves model in `models/linear_baseline.pkl`
-
-### 2️⃣ Launch Dashboard
+### 1️⃣ Launch Dashboard
 
 ```bash
 streamlit run dashboard/app.py
@@ -107,27 +129,48 @@ streamlit run dashboard/app.py
 
 ---
 
-## 5. Notebooks
+## 7. Notebooks
 
-* `notebooks/01_data_exploration.ipynb` → Visualize raw sales trends, promos, and seasonality
-* `notebooks/02_model_comparison.ipynb` → Compare linear baseline with ML models like XGBoost
+* `notebooks/experiment.ipynb` → Initial Visualisation of data using SARIMAX
+* `notebooks/danielTest.ipynb` → Experimentation with Prophet Model and XGBoost
+* `notebooks/cannibalisationTest.ipynb` → Testing Cannibalisation between products
 
 > **Note:** Notebooks are used for **experimentation and visualization**. They are separate from production code in `src/`.
 
 ---
+## 8. Modelling Approach
 
-## 6. Future Work / Extensions
+The project explores baseline estimation using:
 
-* Add **feature engineering**: lagged sales, seasonal indicators, promo interactions
-* Benchmark **XGBoost** against baseline
-* Expand **dashboard** to allow model retraining and dynamic plots
-* Explore **causal inference** for promo uplift analysis
+- Meta Prophet (baseline model)
+- LightGBM (cannibalisation)
+
+The objective is to:
+
+- Capture underlying demand patterns
+- Isolate promotional effects
+- Maintain interpretability
 
 ---
 
-## 7. License & Notes
+## 9. Evaluation
 
-* All data is **simulated / anonymized for coursework**
-* No proprietary Coca-Cola data is included
-* Project follows best practices for **reproducibility and modularity**
+Model performance is evaluated using:
 
+- Mean Absolute Error (MAE)
+- Root Mean Squared Error (RMSE)
+- Mean Absolute Percentage Error (MAPE)
+
+These metrics assess how closely predictions match actual sales.
+
+---
+
+## 10. Alternative Deployment
+
+This dashboard is also deployed using **Azure Virtual Machine**. It can be accessed [here]() 
+
+## 11. License & Notes
+
+* The dataset used in this project was provided for **academic purposes** only
+* This project follows best practices for **reproducibility and modularity**
+* Users may substitute their own datasets following the same format to reproduce results
