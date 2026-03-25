@@ -112,7 +112,7 @@ def test_process_categories(fake_df):
     fake_df['brand_cat'] = 'Misc'
     fake_df['flavor_cat'] = 'Misc'
     fake_df['size_cat'] = 'L'
-    fake_df['product_sku_code'] = [1,2,3,4]
+    fake_df['product_sku_code'] = [1,1,2,2]
 
     dummy_df = fake_df.rename(columns={"date": "ds", "nielsen_total_volume": "y"})
 
